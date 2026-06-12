@@ -1,0 +1,187 @@
+@startuml analise_casos_de_uso_retas
+top to bottom direction
+
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+skinparam linetype ortho
+skinparam nodesep 120
+skinparam ranksep 150
+skinparam shadowing false
+
+title SIG-GCM - Diagrama Geral de Casos de Uso
+
+actor "Usuário do Sistema" as Usuario
+actor "Administrador do Sistema" as Admin
+actor "Supervisor Operacional" as SupOp
+actor "Administrador Operacional" as AdminOp
+actor "Diretoria Operacional" as Dirop
+actor "Servidor Operacional" as ServidorOp
+actor "Supervisor de Plantão" as SupPlantao
+actor "Diretoria Administrativa" as DirAdm
+actor "Gestor Administrativo" as GestAdm
+actor "Setor de RH" as RH
+actor "Gestor Operacional" as GestOp
+actor "Comando da GCM" as Comando
+actor "Comando Operacional" as ComandoOp
+actor "Administrador Institucional" as AdminInst
+actor "Sistema de RH" as SistemaRH
+
+Admin --|> Usuario
+SupOp --|> Usuario
+AdminOp --|> Usuario
+Dirop --|> Usuario
+ServidorOp --|> Usuario
+SupPlantao --|> Usuario
+DirAdm --|> Usuario
+GestAdm --|> Usuario
+RH --|> Usuario
+GestOp --|> Usuario
+Comando --|> Usuario
+ComandoOp --|> Usuario
+AdminInst --|> Usuario
+
+rectangle "SIG-GCM" {
+  package "Autenticação e Acesso" {
+    usecase "Realizar autenticação" as UC001
+    usecase "Gerenciar perfis e permissões" as UC002
+    usecase "Recuperar senha" as UC003
+    usecase "Registrar logs de autenticação" as UC004
+  }
+
+  package "Gestão de Usuários" {
+    usecase "Cadastrar usuários" as UC005
+    usecase "Atualizar usuários" as UC006
+    usecase "Bloquear/Desativar usuários" as UC007
+  }
+
+  package "Gestão de Escalas" {
+    usecase "Cadastrar escalas" as UC008
+    usecase "Editar escalas" as UC009
+    usecase "Excluir logicamente escalas" as UC010
+    usecase "Gerar escalas automaticamente" as UC011
+    usecase "Validar conflitos de jornadas" as UC012
+    usecase "Configurar regimes de trabalho" as UC013
+  }
+
+  package "Gestão de Permutas" {
+    usecase "Solicitar permuta" as UC014
+    usecase "Aprovar/Reprovar permuta" as UC015
+    usecase "Consultar histórico de permutas" as UC016
+  }
+
+  package "Gestão de Horas Extras" {
+    usecase "Registrar horas extras" as UC017
+    usecase "Validar horas extras" as UC018
+    usecase "Emitir relatório de horas extras" as UC019
+  }
+
+  package "Gestão de Servidores" {
+    usecase "Cadastrar servidores" as UC020
+    usecase "Controlar afastamentos e férias" as UC021
+    usecase "Vincular servidores a setores" as UC022
+  }
+
+  package "Relatórios e Auditoria" {
+    usecase "Emitir relatórios operacionais" as UC023
+    usecase "Validar conformidade legal" as UC024
+    usecase "Registrar logs de auditoria" as UC025
+    usecase "Rastrear alterações" as UC026
+  }
+
+  package "Integração e Comunicação" {
+    usecase "Integrar com RH" as UC027
+    usecase "Receber notificações" as UC028
+  }
+
+  package "Administração do Sistema" {
+    usecase "Executar backup" as UC029
+    usecase "Monitorar plataforma" as UC030
+    usecase "Parametrizar regras operacionais" as UC031
+  }
+
+  package "Relatórios de Plantão" {
+    usecase "Registrar relatório de plantão" as UC032
+    usecase "Detalhar relatório de plantão" as UC033
+    usecase "Consolidar dados dos plantões" as UC034
+    usecase "Identificar áreas vulneráveis" as UC035
+    usecase "Visualizar indicadores operacionais" as UC036
+    usecase "Manter histórico de relatórios" as UC037
+    usecase "Exportar relatórios operacionais" as UC038
+  }
+
+  package "Cartão Programa Operacional" {
+    usecase "Cadastrar Cartão Programa" as UC039
+    usecase "Elaborar planejamento operacional" as UC040
+    usecase "Ajustar planejamento operacional" as UC041
+    usecase "Vincular escalas ao Cartão Programa" as UC042
+    usecase "Gerenciar eventos públicos" as UC043
+    usecase "Sugerir distribuição estratégica" as UC044
+    usecase "Aprovar planejamento operacional" as UC045
+    usecase "Manter histórico de versões" as UC046
+  }
+}
+
+Usuario --> UC001
+Usuario --> UC003
+Usuario --> UC028
+Admin --> UC002
+Admin --> UC004
+Admin --> UC005
+Admin --> UC006
+Admin --> UC007
+Admin --> UC016
+Admin --> UC025
+Admin --> UC029
+Admin --> UC030
+Admin --> UC031
+SupOp --> UC008
+SupOp --> UC009
+SupOp --> UC015
+SupOp --> UC033
+AdminOp --> UC010
+AdminOp --> UC012
+AdminOp --> UC013
+AdminOp --> UC042
+Dirop --> UC011
+Dirop --> UC034
+Dirop --> UC039
+Dirop --> UC040
+Dirop --> UC041
+ServidorOp --> UC014
+SupPlantao --> UC032
+DirAdm --> UC018
+GestAdm --> UC019
+RH --> UC020
+RH --> UC021
+RH --> UC027
+AdminInst --> UC022
+AdminInst --> UC024
+AdminInst --> UC026
+AdminInst --> UC037
+AdminInst --> UC046
+GestOp --> UC023
+GestOp --> UC038
+GestOp --> UC043
+Comando --> UC035
+Comando --> UC045
+ComandoOp --> UC036
+SistemaRH --> UC027
+
+UC011 ..> UC012 : <<include>>
+UC014 ..> UC012 : <<include>>
+UC015 ..> UC012 : <<include>>
+UC017 ..> UC024 : <<include>>
+UC018 ..> UC024 : <<include>>
+UC032 ..> UC033 : <<include>>
+UC034 ..> UC036 : <<include>>
+UC035 ..> UC034 : <<include>>
+UC038 ..> UC023 : <<extend>>
+UC040 ..> UC034 : <<include>>
+UC040 ..> UC043 : <<include>>
+UC044 ..> UC034 : <<include>>
+UC045 ..> UC040 : <<include>>
+UC002 ..> UC025 : <<include>>
+UC029 ..> UC025 : <<include>>
+UC031 ..> UC025 : <<include>>
+@enduml
