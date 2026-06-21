@@ -1,0 +1,66 @@
+@startuml
+title UC003 - Recuperar Senha
+
+start
+
+:Usuário acessa "Esqueci minha senha";
+
+:Sistema apresenta formulário;
+
+:Usuário informa e-mail institucional;
+
+if (Campo preenchido?) then (Sim)
+
+    if (Formato válido?) then (Sim)
+
+        if (Domínio institucional?) then (Sim)
+
+            :Localizar usuário;
+
+            if (Usuário ativo?) then (Sim)
+
+                :Gerar token seguro;
+
+                :Gravar token;
+
+                :Enviar e-mail;
+
+                if (E-mail enviado?) then (Sim)
+
+                    :Registrar auditoria;
+
+                    :Exibir mensagem de sucesso;
+
+                else (Não)
+
+                    :Exibir erro de envio;
+
+                endif
+
+            else (Não)
+
+                :Exibir mensagem genérica de recuperação;
+
+            endif
+
+        else (Não)
+
+            :Exibir "Utilize um e-mail institucional válido.";
+
+        endif
+
+    else (Não)
+
+        :Exibir "Informe um endereço de e-mail válido.";
+
+    endif
+
+else (Não)
+
+    :Exibir "Informe o e-mail institucional.";
+
+endif
+
+stop
+
+@enduml

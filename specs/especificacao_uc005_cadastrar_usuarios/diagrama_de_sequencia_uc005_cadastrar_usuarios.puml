@@ -1,0 +1,109 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Administrador\n(Executor)" as Admin
+boundary "Tela de Cadastro\nde Usuário" as Tela
+control "UsuarioController" as Controller
+control "Validador" as Validator
+database "Banco de Dados\n(SIG-GCM)" as DB
+database "Sistema de Log/\nAuditoria" as LOG
+
+== Fase 1: Inicialização e Permissão ==
+Admin -> Tela : Acessar menu Cadastrar Usuário
+Tela -> Controller : GET /usuarios/novo (Verificar Permissão)
+Controller -> Validator : verificarPermissao(usuarioAutenticado, 'UC005')
+activate Validator
+
+alt A2: Usuário sem permissão (RN001)
+    Validator --> Controller : Permissão Negada
+    Controller --> Tela : HTTP 403 Forbidden (Mensagem de Acesso Negado)
+    Tela --> Admin : Exibe: "Acesso negado. Você não possui permissão para cadastrar usuários."
+else Permissão Concedida
+    Validator --> Controller : Permissão Válida
+    deactivate Validator
+    Controller --> Tela : HTTP 200 OK (Renderiza Formulário Vazio)
+    Tela --> Admin : Renderiza tela com campos e valores padrão (Situação: Ativo)
+end
+
+== Fase 2: Consulta e Integração de Dados do Servidor ==
+Admin -> Tela : Informa Matrícula do Servidor
+Tela -> Controller : GET /servidores/consulta/{matricula}
+Controller -> DB : buscarServidorPorMatricula(matricula)
+
+alt A3: Matrícula Inexistente (RN005)
+    DB --> Controller : Registro não encontrado
+    Controller --> Tela : HTTP 404 Not Found (Mensagem de erro)
+    Tela --> Admin : Exibe: "Servidor não encontrado para a matrícula informada."
+else Matrícula Existente (Sucesso na Integração)
+    DB --> Controller : Retorna Dados do Servidor (Nome, CPF, Unidade)
+    Controller --> Tela : HTTP 200 OK (Dados do Servidor)
+    Tela --> Admin : Preenche automaticamente Nome, CPF e Unidade
+end
+
+== Fase 3: Envio do Formulário e Validações de Negócio ==
+Admin -> Tela : Informa Perfil, Login, Senha, Confirmação e Observações
+Admin -> Tela : Selecionar "Salvar"
+Tela -> Controller : POST /usuarios/cadastrar (Payload com Dados)
+
+Controller -> Validator : validarCamposObrigatorios(dados)
+alt A1: Campos obrigatórios não informados (RN009)
+    Validator --> Controller : Inconsistências (Campos vazios)
+    Controller --> Tela : HTTP 400 Bad Request (Lista de erros)
+    Tela --> Admin : Exibe: "Existem campos obrigatórios não preenchidos. Verifique os campos destacados."
+end
+
+Controller -> Validator : validarRegrasSenha(senha, confirmarSenha)
+alt A7: Senhas diferentes
+    Validator --> Controller : Senhas não conferem
+    Controller --> Tela : HTTP 400 Bad Request
+    Tela --> Admin : Exibe: "A confirmação da senha não confere."
+else A8: Senha fora da política (RN006)
+    Validator --> Controller : Senha fraca
+    Controller --> Tela : HTTP 400 Bad Request
+    Tela --> Admin : Exibe: "A senha informada não atende à política de segurança."
+end
+
+Controller -> Validator : validarFormatoEmail(email)
+alt A6: E-mail Inválido
+    Validator --> Controller : Formato ou domínio inválido
+    Controller --> Tela : HTTP 400 Bad Request
+    Tela --> Admin : Exibe: "Informe um e-mail institucional válido."
+end
+
+== Fase 4: Validações na Base de Dados ==
+Controller -> DB : verificarUnicidade(CPF, Login, Email)
+
+alt A4: CPF já cadastrado (RN003)
+    DB --> Controller : CPF Duplicado
+    Controller --> Tela : HTTP 409 Conflict
+    Tela --> Admin : Exibe: "Já existe um usuário cadastrado com este CPF."
+else A5: Login já existente (RN002)
+    DB --> Controller : Login Duplicado
+    Controller --> Tela : HTTP 409 Conflict
+    Tela --> Admin : Exibe: "O login informado já está em uso."
+else Dados Únicos e Válidos
+    DB --> Controller : Validação de Unicidade OK
+    
+    == Fase 5: Persistência e Auditoria ==
+    note over Controller, DB : Início da Transação ACID
+    Controller -> DB : inserirUsuario(novoUsuario)
+    Controller -> DB : associarPerfil(usuarioId, perfilId) (RN004)
+    
+    alt A9: Erro Interno (Falha no Banco)
+        DB --> Controller : Falha/Exception (Ex: timeout, quebra de constraint)
+        Controller -> DB : Rollback Transação
+        Controller -> LOG : registrarAuditoria(Falha, Motivo) (RN007 / RNF008)
+        Controller --> Tela : HTTP 500 Internal Server Error
+        Tela --> Admin : Exibe: "Não foi possível concluir o cadastro do usuário. Tente novamente."
+    else Gravação com Sucesso
+        DB --> Controller : Commit Transação OK
+        Controller -> LOG : registrarAuditoria(Sucesso, Dados do Log) (RN007 / RNF008)
+        LOG --> Controller : Log Gravado
+        Controller --> Tela : HTTP 201 Created (Mensagem de Sucesso)
+        Tela --> Admin : Exibe: "Usuário cadastrado com sucesso."
+    end
+end
+
+@enduml

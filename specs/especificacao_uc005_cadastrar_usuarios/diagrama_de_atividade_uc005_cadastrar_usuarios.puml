@@ -1,0 +1,77 @@
+@startuml
+skinparam DefaultTextAlignment center
+
+start
+
+:Acessar o menu\n**Administração -> Gestão de Usuários -> Cadastrar Usuário**;
+
+:Validar permissão do usuário autenticado\n(RN001);
+if (Possui permissão?) then (Não)
+    :Exibir mensagem:\n"Acesso negado. Você não possui permissão para cadastrar usuários.";
+    detach
+else (Sim)
+    :Renderizar formulário de cadastro\ncom campos vazios e Situação: Ativo;
+    
+    :Informar Matrícula do Servidor;
+    :Consultar dados cadastrais do servidor\nna base de dados;
+    
+    if (Matrícula encontrada na corporação?\n(RN005)) then (Não)
+        :Exibir mensagem:\n"Servidor não encontrado para a matrícula informada.";
+        stop
+    else (Sim)
+        :Preencher automaticamente dados disponíveis\n(Nome, CPF, Unidade);
+        
+        :Informar ou confirmar Perfil de Acesso, Login,\nSenha, Confirmação, Situação e Observações;
+        :Selecionar botão **Salvar**;
+        
+        :Validar preenchimento dos campos obrigatórios\n(RN009);
+        if (Todos os campos obrigatórios preenchidos?) then (Não)
+            :Exibir mensagem:\n"Existem campos obrigatórios não preenchidos.\nVerifique os campos destacados.";
+            stop
+        else (Sim)
+            :Validar igualdade e política da senha\n(RN006);
+            if (Senhas são idênticas?) then (Não)
+                :Exibir mensagem:\n"A confirmação da senha não confere.";
+                stop
+            else (Sim)
+                if (Senha atende aos requisitos de segurança?) then (Não)
+                    :Exibir mensagem:\n"A senha informada não atende à política de segurança.";
+                    stop
+                else (Sim)
+                    :Validar formato e domínio do E-mail Institucional;
+                    if (E-mail é válido?) then (Não)
+                        :Exibir mensagem:\n"Informe um e-mail institucional válido.";
+                        stop
+                    else (Sim)
+                        :Consultar banco para verificar unicidade de CPF e Login;
+                        if (CPF já cadastrado no sistema?\n(RN003)) then (Sim)
+                            :Exibir mensagem:\n"Já existe um usuário cadastrado com este CPF.";
+                            stop
+                        else (Não)
+                            if (Login já existente no sistema?\n(RN002)) then (Sim)
+                                :Exibir mensagem:\n"O login informado já está em uso.";
+                                stop
+                            else (Não)
+                                :Iniciar gravação na Base de Dados;
+                                if (Gravação realizada com sucesso?) then (Não)
+                                    :Desfazer transação (Rollback);
+                                    :Registrar Auditoria do Erro\n(Resultado: Falha);
+                                    :Exibir mensagem:\n"Não foi possível concluir o cadastro do usuário. Tente novamente.";
+                                    stop
+                                else (Sim)
+                                    :Gravar novo usuário;
+                                    :Associar perfil de acesso (RN004);
+                                    :Registrar operação no Log de Auditoria\n(Resultado: Sucesso | RN007 / RNF008);
+                                    :Exibir mensagem:\n"Usuário cadastrado com sucesso.";
+                                    stop
+                                endif
+                            endif
+                        endif
+                    endif
+                endif
+            endif
+        endif
+    endif
+endif
+
+@enduml

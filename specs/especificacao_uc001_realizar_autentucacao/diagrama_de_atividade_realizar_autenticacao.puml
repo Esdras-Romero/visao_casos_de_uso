@@ -1,0 +1,68 @@
+@startuml
+title UC001 - Diagrama de Atividades - Realizar Autenticação
+
+start
+
+:Usuário acessa a tela de autenticação;
+
+:Sistema apresenta formulário;
+
+:Usuário informa login e senha;
+
+:Validar campos obrigatórios;
+
+if (Campos válidos?) then (Sim)
+
+:Validar credenciais;
+
+if (Credenciais válidas?) then (Sim)
+
+:Validar situação do usuário;
+
+if (Usuário ativo e autorizado?) then (Sim)
+
+:Carregar perfil institucional;
+
+:Aplicar permissões;
+
+:Registrar log de autenticação;
+
+:Criar sessão;
+
+:Redirecionar ao painel principal;
+
+:Exibir mensagem de sucesso;
+
+stop
+
+else (Não)
+
+:Bloquear autenticação;
+
+:Informar ausência de permissão\nou regra de negócio violada;
+
+stop
+
+endif
+
+else (Não)
+
+:Exibir mensagem de login ou senha inválidos;
+
+:Solicitar nova tentativa;
+
+stop
+
+endif
+
+else (Não)
+
+:Informar campos obrigatórios\nou inconsistentes;
+
+:Solicitar correção;
+
+stop
+
+endif
+
+@enduml

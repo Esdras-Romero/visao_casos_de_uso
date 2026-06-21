@@ -1,0 +1,77 @@
+@startuml
+title UC002 - Gerenciar Perfis e Permissões
+
+start
+
+:Administrador acessa o módulo;
+
+:Sistema verifica permissão;
+
+if (Usuário autorizado?) then (Sim)
+
+:Carregar perfis e permissões;
+
+:Administrador cria ou altera perfil;
+
+:Preencher formulário;
+
+:Selecionar permissões;
+
+:Validar campos obrigatórios;
+
+if (Campos válidos?) then (Sim)
+
+if (Perfil duplicado?) then (Sim)
+
+:Exibir mensagem;
+:"Já existe um perfil cadastrado com este nome.";
+
+stop
+
+else (Não)
+
+if (Possui permissões?) then (Sim)
+
+:Gravar perfil;
+
+:Atualizar permissões;
+
+:Registrar auditoria;
+
+:Atualizar tela;
+
+:Exibir mensagem;
+:"Perfil e permissões atualizados com sucesso.";
+
+stop
+
+else (Não)
+
+:Exibir mensagem;
+:"Selecione pelo menos uma permissão para o perfil.";
+
+stop
+
+endif
+
+endif
+
+else (Não)
+
+:Exibir mensagem;
+:"Preencha todos os campos obrigatórios antes de salvar.";
+
+stop
+
+endif
+
+else (Não)
+
+:Exibir mensagem;
+:"Você não possui permissão para executar esta operação.";
+
+stop
+
+endif
+
+@enduml

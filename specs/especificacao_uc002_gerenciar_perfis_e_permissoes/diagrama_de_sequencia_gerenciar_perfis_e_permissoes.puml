@@ -1,0 +1,44 @@
+@startuml
+title UC002 - Gerenciar Perfis e Permissões
+
+actor "Administrador" as Admin
+boundary "Tela de Controle de Permissões" as Tela
+control "Controlador de Perfis" as Ctrl
+database "Banco de Dados" as BD
+
+Admin -> Tela : Acessa funcionalidade
+Tela -> Ctrl : Solicita carregamento da tela
+Ctrl -> BD : Consultar perfis e permissões
+BD --> Ctrl : Lista de perfis
+Ctrl --> Tela : Exibe dados
+
+Admin -> Tela : Salvar alterações
+Tela -> Ctrl : Enviar formulário
+
+Ctrl -> Ctrl : Validar campos e regras
+
+alt Dados válidos
+    Ctrl -> BD : Gravar perfil
+    Ctrl -> BD : Atualizar permissões
+    Ctrl -> BD : Registrar auditoria
+    BD --> Ctrl : Confirma transação
+    Ctrl --> Tela : Exibir sucesso
+    Tela --> Admin : "Perfil e permissões atualizados com sucesso."
+else Campos inválidos
+    Ctrl --> Tela : Exibir inconsistências
+    Tela --> Admin : "Preencha todos os campos obrigatórios antes de salvar."
+else Perfil duplicado
+    Ctrl --> Tela : Perfil existente
+    Tela --> Admin : "Já existe um perfil cadastrado com este nome."
+else Perfil em uso
+    Ctrl --> Tela : Exclusão negada
+    Tela --> Admin : "O perfil não pode ser excluído porque está vinculado a usuários ativos."
+else Sem permissão
+    Ctrl --> Tela : Acesso negado
+    Tela --> Admin : "Você não possui permissão para executar esta operação."
+else Erro interno
+    Ctrl --> Tela : Falha na operação
+    Tela --> Admin : "Não foi possível concluir a operação. Tente novamente mais tarde."
+end
+
+@enduml

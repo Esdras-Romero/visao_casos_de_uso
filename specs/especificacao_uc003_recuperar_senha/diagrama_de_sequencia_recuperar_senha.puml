@@ -1,0 +1,55 @@
+@startuml
+title UC003 - Recuperar Senha
+
+actor Usuario
+
+boundary "Tela Recuperar Senha" as Tela
+control "RecuperacaoSenhaController" as Controller
+control "ServicoAutenticacao" as Auth
+control "ServicoEmail" as Email
+database "Banco de Dados" as BD
+
+Usuario -> Tela : Acessa "Esqueci minha senha"
+Tela --> Usuario : Exibe formulário
+
+Usuario -> Tela : Informa e-mail
+Tela -> Controller : Solicitar recuperação(e-mail)
+
+Controller -> Auth : Validar formato do e-mail
+
+alt E-mail inválido
+    Auth --> Controller : Erro
+    Controller --> Tela : "Informe um endereço de e-mail válido."
+
+else E-mail válido
+
+    Controller -> BD : Buscar usuário
+
+    alt Usuário inexistente, bloqueado ou desativado
+        BD --> Controller : Usuário inválido
+        Controller --> Tela : "Caso exista uma conta vinculada ao e-mail informado, uma mensagem contendo as instruções para redefinição da senha foi enviada."
+
+    else Usuário válido
+
+        Controller -> Auth : Gerar token
+        Auth --> Controller : Token
+
+        Controller -> BD : Salvar token
+
+        Controller -> Email : Enviar e-mail
+
+        alt Falha no envio
+            Email --> Controller : Erro
+            Controller --> Tela : "Não foi possível enviar o e-mail de recuperação. Tente novamente mais tarde."
+
+        else Envio realizado
+            Email --> Controller : OK
+            Controller -> BD : Registrar auditoria
+            Controller --> Tela : "Caso exista uma conta vinculada ao e-mail informado, uma mensagem contendo as instruções para redefinição da senha foi enviada."
+        end
+
+    end
+
+end
+
+@enduml

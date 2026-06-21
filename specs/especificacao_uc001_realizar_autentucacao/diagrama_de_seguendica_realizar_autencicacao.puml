@@ -1,0 +1,68 @@
+@startuml
+title UC001 - Diagrama de Sequência - Realizar Autenticação
+
+actor "Usuário" as Usuario
+boundary "Tela de Login" as Tela
+control "Controlador de Autenticação" as Controller
+control "Serviço de Permissões" as Permissao
+database "Banco de Dados" as Banco
+collections "Auditoria" as Auditoria
+
+Usuario -> Tela : Acessar autenticação
+Tela --> Usuario : Exibir formulário
+
+Usuario -> Tela : Informar login e senha
+Tela -> Controller : Solicitar autenticação(login,senha)
+
+Controller -> Controller : Validar campos obrigatórios
+
+alt Campos inválidos
+Controller --> Tela : Campos inconsistentes
+Tela --> Usuario : Solicitar correção
+
+else Campos válidos
+
+Controller -> Banco : Consultar usuário
+
+Banco --> Controller : Dados do usuário
+
+alt Credenciais inválidas
+Controller --> Tela : Login ou senha inválidos
+Tela --> Usuario : Exibir mensagem
+
+else Credenciais válidas
+
+Controller -> Permissao : Validar perfil e situação
+
+alt Usuário bloqueado ou sem permissão
+Permissao --> Controller : Acesso negado
+Controller --> Tela : Operação bloqueada
+Tela --> Usuario : Informar ausência de permissão
+
+else Regra de negócio violada
+Permissao --> Controller : Violação identificada
+Controller --> Tela : Informar justificativa
+Tela --> Usuario : Exibir mensagem
+
+else Autorizado
+Permissao --> Controller : Perfil autorizado
+
+Controller -> Auditoria : Registrar evento LOGIN
+
+Auditoria --> Controller : Log registrado
+
+Controller -> Banco : Criar sessão
+
+Banco --> Controller : Sessão criada
+
+Controller --> Tela : Autenticação concluída
+
+Tela --> Usuario : Redirecionar para Dashboard
+
+end
+
+end
+
+end
+
+@enduml

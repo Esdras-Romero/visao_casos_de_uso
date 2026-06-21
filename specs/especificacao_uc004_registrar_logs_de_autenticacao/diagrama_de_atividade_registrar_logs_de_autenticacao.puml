@@ -1,0 +1,42 @@
+@startuml
+
+start
+
+:Receber tentativa de autenticação;
+
+:Validar credenciais;
+
+if (Credenciais válidas?) then (Sim)
+
+    :Identificar IP e ambiente;
+    :Gerar identificador da sessão;
+    :Registrar log de LOGIN;
+    
+    if (Log registrado?) then (Sim)
+
+        :Liberar acesso ao sistema;
+
+        :Usuário solicita Logout;
+
+        :Registrar log de LOGOUT;
+
+        :Atualizar duração da sessão;
+
+        :Exibir "Operação realizada com sucesso.";
+
+    else (Não)
+
+        :Exibir "Não foi possível registrar o evento de auditoria.";
+
+    endif
+
+else (Não)
+
+    :Registrar tentativa inválida;
+    :Exibir "Usuário ou senha inválidos.";
+
+endif
+
+stop
+
+@enduml
