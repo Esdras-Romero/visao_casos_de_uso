@@ -1,0 +1,34 @@
+@startuml
+start
+
+:Administrador acessa controle de usuários e solicita alteração de status;
+:Sistema busca o registro do usuário e renderiza o formulário em tela;
+:Administrador preenche novo status, motivo, justificativa e confirma;
+
+if (Sessão é válida e Ator possui perfil administrativo?) then (Não [A2])
+    :Sistema recusa o processamento da requisição;
+    :Exibe: "Acesso Negado: Você não possui permissão para bloquear ou desativar usuários.";
+    stop
+else (Sim)
+    :Sistema confere a identidade do usuário alvo;
+    if (ID do usuário alvo é igual ao ID do Administrador logado?) then (Sim [A3])
+        :Sistema cancela a operação por proteção de auto-bloqueio;
+        :Exibe: "Operação Cancelada: Não é permitido bloquear ou desativar o seu próprio usuário de forma autônoma.";
+        stop
+    else (Não)
+        :Sistema valida integridade do campo justificativa;
+        if (Justificativa preenchida com mais de 15 caracteres?) then (Não [A1])
+            :Sistema invalida formulário e destaca campo em erro;
+            :Exibe: "Erro na validação dos dados: O campo justificativa é obrigatório e deve conter no mínimo 15 caracteres.";
+            stop
+        else (Sim)
+            :Persiste a modificação lógica de status (Ativo -> Inativo/Bloqueado) no banco;
+            :Modifica tokens de segurança para derrubar acessos do usuário afetado;
+            :Grava entrada estruturada de auditoria contendo metadados e diff;
+            :Exibe notificação: "Status do usuário atualizado com sucesso!";
+            stop
+        endif
+    endif
+endif
+
+@enduml

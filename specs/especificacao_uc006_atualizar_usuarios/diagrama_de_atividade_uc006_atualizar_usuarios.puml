@@ -1,0 +1,33 @@
+@startuml
+start
+
+:Administrador acessa a funcionalidade e solicita tela de edição;
+:Sistema busca o usuário na base relacional e preenche os campos;
+:Administrador altera dados do formulário e aciona "Salvar Alterações";
+
+if (Sessão válida e Ator possui perfil de Administrador?) then (Não [A2])
+    :Sistema nega o processamento da requisição;
+    :Exibe: "Acesso Negado: Você não possui permissão para atualizar dados de usuários.";
+    stop
+else (Sim)
+    :Sistema executa validação sintática dos campos e domínio do e-mail;
+    if (Campos obrigatórios preenchidos e formato de e-mail válido?) then (Não [A1])
+        :Sistema aborta persistência e sinaliza os erros na tela;
+        :Exibe: "Erro na validação dos dados: O e-mail informado deve ser um e-mail institucional válido.";
+        stop
+    else (Sim)
+        :Sistema verifica conflitos com a malha operacional da GCM (RN001);
+        if (Tentativa de inativar usuário que possui escalas pendentes no futuro?) then (Sim [A3])
+            :Sistema bloqueia a atualização cadastral operacional;
+            :Exibe: "Operação Cancelada: Não é possível desativar um usuário com escalas operacionais ativas pendentes.";
+            stop
+        else (Não)
+            :Persiste as modificações no banco de dados do SIG-GCM;
+            :Grava entrada estruturada JSON com diff nos logs de auditoria;
+            :Gera notificação: "Usuário atualizado com sucesso!";
+            stop
+        endif
+    endif
+endif
+
+@enduml

@@ -1,0 +1,64 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+
+actor "Administrador" as Admin
+boundary "GestaoUsuarioView" as View
+control "UsuarioController" as Ctrl
+database "PostgreSQL_DB" as DB
+
+box "Frontend" #LightBlue
+    participant View
+end box
+
+box "Backend" #LightYellow
+    participant Ctrl
+    participant DB
+end box
+
+Admin -> View : Seleciona usuário e clica em "Bloquear/Desativar"
+activate View
+View -> Ctrl : GET /api/usuarios/{id}/status-info
+activate Ctrl
+Ctrl -> DB : SELECT id, nome, matricula, status FROM usuarios WHERE id = id
+activate DB
+DB --> Ctrl : Detalhes básicos do usuário encontrados
+deactivate DB
+Ctrl --> View : HTTP 200 OK (Dados do Usuário)
+deactivate Ctrl
+View --> Admin : Exibe formulário com dados e campos de status
+
+Admin -> View : Escolhe novo status, motivo, insere justificativa e clica em "Confirmar"
+View -> Ctrl : PUT /api/usuarios/{id}/status (Payload com justificativa e novo status)
+activate Ctrl
+
+note over Ctrl : Valida token do administrador\ne nível de permissão (RF002, RN001)
+
+alt Sem permissão administrativa [A2]
+    Ctrl --> View : HTTP 403 Forbidden
+    View --> Admin : Exibe erro: "Acesso Negado: Você não possui permissão..."
+else Tentativa de auto-bloqueio detectada [A3]
+    Ctrl --> View : HTTP 400 Bad Request
+    View --> Admin : Exibe erro: "Operação Cancelada: Não é permitido bloquear o seu próprio..."
+else Justificativa em branco ou insuficiente [A1]
+    Ctrl --> View : HTTP 422 Unprocessable Entity
+    View --> Admin : Alerta visual: "Erro na validação dos dados: O campo justificativa..."
+else Sucesso nas validações de negócio
+    Ctrl -> DB : UPDATE usuarios SET status = novo_status WHERE id = id
+    activate DB
+    DB --> Ctrl : Confirmação de alteração lógica (RF007)
+    deactivate DB
+    
+    Ctrl -> DB : INSERT INTO logs_auditoria (...)
+    activate DB
+    DB --> Ctrl : Rastro de auditoria salvo com sucesso (RF004, RN005)
+    deactivate DB
+    
+    note over Ctrl : Derruba sessões e revoga tokens ativos\ndo usuário afetado em tempo real
+    
+    Ctrl --> View : HTTP 200 OK
+    deactivate Ctrl
+    View --> Admin : Exibe notificação: "Status do usuário atualizado com sucesso!"
+end alt
+deactivate View
+@enduml

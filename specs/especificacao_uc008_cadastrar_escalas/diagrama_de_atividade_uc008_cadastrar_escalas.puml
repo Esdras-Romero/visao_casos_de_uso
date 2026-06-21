@@ -1,0 +1,32 @@
+@startuml
+start
+
+:Supervisor Operacional acessa a funcionalidade e visualiza a tela;
+:Supervisor preenche os dados do guarda, horários, posto e confirma;
+
+if (Ator possui perfil de Supervisor Operacional?) then (Não [A2])
+    :Sistema bloqueia o processamento da requisição;
+    :Exibe: "Acesso Negado: Você não possui permissão para cadastrar escalas operacionais.";
+    stop
+else (Sim)
+    :Sistema valida obrigatoriedade de campos e consistência de horários;
+    if (Todos os campos preenchidos e Hora Início < Hora Término?) then (Não [A1])
+        :Sistema sinaliza falhas nos campos da interface;
+        :Exibe: "Erro na validação dos dados: Verifique o preenchimento dos campos obrigatórios e garanta que a hora de término seja posterior...";
+        stop
+    else (Sim)
+        :Sistema faz varredura de conflitos e sobreposições na agenda do guarda (RN008);
+        if (Guarda possui outro plantão ou escala ativa no mesmo intervalo?) then (Sim [A3])
+            :Sistema cancela a transação de persistência;
+            :Exibe: "Operação Cancelada: O servidor selecionado já possui uma escala ativa ou sobreposta cadastrada para este período.";
+            stop
+        else (Não)
+            :Grava o novo registro de escala operacional no banco de dados do SIG-GCM;
+            :Registra o payload da operação com metadados estruturados na tabela de auditoria;
+            :Exibe notificação de sucesso: "Escala operacional cadastrada com sucesso!";
+            stop
+        endif
+    endif
+endif
+
+@enduml

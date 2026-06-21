@@ -1,0 +1,69 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+
+actor "Supervisor Operacional" as Super
+boundary "CadastroEscalaView" as View
+control "EscalaController" as Ctrl
+database "PostgreSQL_DB" as DB
+
+box "Frontend" #LightBlue
+    participant View
+end box
+
+box "Backend" #LightYellow
+    participant Ctrl
+    participant DB
+end box
+
+Super -> View : Acessa funcionalidade "Cadastrar Escalas"
+activate View
+View -> Ctrl : GET /api/escalas/opcoes-formulario
+activate Ctrl
+Ctrl -> DB : SELECT servidores ativos E postos cadastrados
+activate DB
+DB --> Ctrl : Listas de dados retornadas
+deactivate DB
+Ctrl --> View : HTTP 200 OK (Payload de Opções)
+deactivate Ctrl
+View --> Super : Renderiza formulário estruturado na tela
+
+Super -> View : Informa os dados da escala e clica em "Salvar Escala"
+View -> Ctrl : POST /api/escalas (Payload da Nova Escala)
+activate Ctrl
+
+note over Ctrl : Valida autenticação e\nperfil do ator (RF001, RF002)
+
+alt Usuário sem permissão ou sessão inválida [A2]
+    Ctrl --> View : HTTP 403 Forbidden
+    View --> Super : Exibe erro: "Acesso Negado: Você não possui permissão..."
+else Inconsistência nos horários ou campos nulos [A1]
+    Ctrl --> View : HTTP 400 Bad Request
+    View --> Super : Alerta visual: "Erro na validação dos dados: Verifique o preenchimento..."
+else Validação de regras de negócio de alocação (RN008)
+    Ctrl -> DB : SELECT COUNT(*) FROM escalas WHERE servidor_id = id AND data = data AND sobreposicao = true
+    activate DB
+    DB --> Ctrl : Resultado da contagem de conflitos
+    deactivate DB
+    
+    alt Servidor já possui escala no mesmo período [A3]
+        Ctrl --> View : HTTP 422 Unprocessable Entity
+        View --> Super : Exibe erro: "Operação Cancelada: O servidor selecionado já possui..."
+    else Sem conflitos operacionais (Fluxo Principal)
+        Ctrl -> DB : INSERT INTO escalas (servidor_id, data, inicio, termino, posto, tipo) VALUES (...)
+        activate DB
+        DB --> Ctrl : Confirmação de persistência da escala
+        deactivate DB
+        
+        Ctrl -> DB : INSERT INTO logs_auditoria (...)
+        activate DB
+        DB --> Ctrl : Log de auditoria persistido com sucesso
+        deactivate DB
+        
+        Ctrl --> View : HTTP 201 Created
+        deactivate Ctrl
+        View --> Super : Exibe notificação: "Escala operacional cadastrada com sucesso!"
+    end alt
+end alt
+deactivate View
+@enduml

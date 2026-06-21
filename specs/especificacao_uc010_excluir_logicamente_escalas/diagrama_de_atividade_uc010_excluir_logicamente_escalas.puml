@@ -1,0 +1,33 @@
+@startuml
+start
+
+:Administrador Operacional solicita a exclusão de uma escala;
+:Sistema recupera os dados e exibe a modal de confirmação de exclusão;
+:Administrador seleciona o motivo, insere a justificativa e confirma;
+
+if (Ator autenticado possui papel de Administrador Operacional?) then (Não [A2])
+    :Sistema nega o processamento do comando;
+    :Exibe: "Acesso Negado: Você não possui permissão para excluir logicamente escalas operacionais.";
+    stop
+else (Sim)
+    :Sistema valida os parâmetros textuais do formulário;
+    if (Justificativa preenchida com ao menos 15 caracteres?) then (Não [A1])
+        :Sistema aborta operação e realça o campo de texto;
+        :Exibe: "Erro na validação dos dados: O campo justificativa é obrigatório e deve conter no mínimo 15 caracteres.";
+        stop
+    else (Sim)
+        :Sistema verifica o andamento cronológico do plantão (RN007);
+        if (O plantão da escala já iniciou ou foi finalizado?) then (Sim [A3])
+            :Sistema bloqueia a inativação da escala;
+            :Exibe: "Operação Cancelada: Não é permitido inativar ou excluir escalas cujo período de plantão já tenha sido iniciado ou concluído.";
+            stop
+        else (Não)
+            :Executa o UPDATE lógico (is_active = false) na tabela de escalas;
+            :Registra a trilha estruturada JSON nos logs críticos de auditoria;
+            :Exibe notificação na tela: "Escala operacional excluída logicamente com sucesso!";
+            stop
+        endif
+    endif
+endif
+
+@enduml

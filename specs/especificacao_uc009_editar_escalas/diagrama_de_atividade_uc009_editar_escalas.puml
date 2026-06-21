@@ -1,0 +1,33 @@
+@startuml
+start
+
+:Supervisor Operacional solicita tela de edição de uma escala;
+:Sistema recupera os dados vigentes do banco e renderiza o formulário;
+:Supervisor altera as informações da escala e aciona "Salvar Alterações";
+
+if (Ator possui perfil de Supervisor Operacional?) then (Não [A2])
+    :Sistema nega o processamento da requisição;
+    :Exibe: "Acesso Negado: Você não possui permissão para editar escalas operacionais.";
+    stop
+else (Sim)
+    :Sistema valida preenchimento e coerência cronológica dos horários;
+    if (Todos os campos preenchidos e Hora Início < Hora Término?) then (Não [A1])
+        :Sistema sinaliza falhas nos campos de horários;
+        :Exibe: "Erro na validação dos dados: A hora de término deve ser estritamente posterior à hora de início.";
+        stop
+    else (Sim)
+        :Sistema executa varredura de conflitos para o guarda selecionado (RN009);
+        if (Guarda possui escala ativa ou sobreposta no mesmo intervalo?) then (Sim [A3])
+            :Sistema bloqueia a atualização da escala;
+            :Exibe: "Operação Cancelada: O guarda selecionado já possui uma escala ativa ou sobreposta cadastrada para este período.";
+            stop
+        else (Não)
+            :Persiste as modificações na tabela de escalas do banco de dados;
+            :Grava entrada de auditoria estruturada com o diff da alteração;
+            :Exibe notificação em tela: "Escala operacional atualizada e revalidada com sucesso!";
+            stop
+        endif
+    endif
+endif
+
+@enduml

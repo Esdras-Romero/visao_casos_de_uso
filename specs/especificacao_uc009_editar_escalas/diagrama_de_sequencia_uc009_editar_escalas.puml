@@ -1,0 +1,69 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+
+actor "Supervisor Operacional" as Super
+boundary "EdicaoEscalaView" as View
+control "EscalaController" as Ctrl
+database "PostgreSQL_DB" as DB
+
+box "Frontend" #LightBlue
+    participant View
+end box
+
+box "Backend" #LightYellow
+    participant Ctrl
+    participant DB
+end box
+
+Super -> View : Seleciona escala e clica em "Editar"
+activate View
+View -> Ctrl : GET /api/escalas/{id}
+activate Ctrl
+Ctrl -> DB : SELECT * FROM escalas WHERE id = id
+activate DB
+DB --> Ctrl : Dados da escala encontrados
+deactivate DB
+Ctrl --> View : HTTP 200 OK (Payload com dados atuais)
+deactivate Ctrl
+View --> Super : Renderiza formulário preenchido com dados da escala
+
+Super -> View : Modifica campos do formulário e clica em "Salvar Alterações"
+View -> Ctrl : PUT /api/escalas/{id} (Dados Modificados)
+activate Ctrl
+
+note over Ctrl : Valida autenticação e\nperfil do ator (RF001, RF002)
+
+alt Usuário sem permissão ou sessão inválida [A2]
+    Ctrl --> View : HTTP 403 Forbidden
+    View --> Super : Exibe erro: "Acesso Negado: Você não possui permissão..."
+else Hora de início maior ou igual à hora de término [A1]
+    Ctrl --> View : HTTP 400 Bad Request
+    View --> Super : Alerta visual: "Erro na validação dos dados: A hora de término..."
+else Validação de choque de horários do guarda (RN009)
+    Ctrl -> DB : SELECT COUNT(*) FROM escalas WHERE guarda_id = id AND data = data AND id != current_id AND sobreposicao = true
+    activate DB
+    DB --> Ctrl : Contagem de conflitos encontrados
+    deactivate DB
+    
+    alt Guarda já possui escala conflitante no período [A3]
+        Ctrl --> View : HTTP 422 Unprocessable Entity
+        View --> Super : Exibe erro: "Operação Cancelada: O guarda selecionado já possui..."
+    else Sucesso na Revalidação (Fluxo Principal)
+        Ctrl -> DB : UPDATE escalas SET guarda_id = gid, inicio = i, termino = t, posto = p WHERE id = id
+        activate DB
+        DB --> Ctrl : Confirmação de persistência dos dados
+        deactivate DB
+        
+        Ctrl -> DB : INSERT INTO logs_auditoria (...)
+        activate DB
+        DB --> Ctrl : Log de auditoria persistido com o diff
+        deactivate DB
+        
+        Ctrl --> View : HTTP 200 OK
+        deactivate Ctrl
+        View --> Super : Exibe notificação: "Escala operacional atualizada e revalidada com sucesso!"
+    end alt
+end alt
+deactivate View
+@enduml

@@ -1,0 +1,69 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+
+actor "Administrador Operacional" as Admin
+boundary "CalendarioEscalaView" as View
+control "EscalaController" as Ctrl
+database "PostgreSQL_DB" as DB
+
+box "Frontend" #LightBlue
+    participant View
+end box
+
+box "Backend" #LightYellow
+    participant Ctrl
+    participant DB
+end box
+
+Admin -> View : Seleciona escala e clica em "Excluir Logicamente"
+activate View
+View -> Ctrl : GET /api/escalas/{id}/resumo-exclusao
+activate Ctrl
+Ctrl -> DB : SELECT id, servidor_nome, data, horario, posto FROM escalas WHERE id = id
+activate DB
+DB --> Ctrl : Registro da escala localizado
+deactivate DB
+Ctrl --> View : HTTP 200 OK (Dados resumidos da escala)
+deactivate Ctrl
+View --> Admin : Abre janela modal de confirmação com dados e campos de justificativa
+
+Admin -> View : Seleciona motivo, digita justificativa e clica em "Confirmar"
+View -> Ctrl : DELETE /api/escalas/{id}/logico (Payload com justificativa e motivo)
+activate Ctrl
+
+note over Ctrl : Valida autenticação e\nperfil do ator (RF001, RF002)
+
+alt Sem perfil de Administrador Operacional [A2]
+    Ctrl --> View : HTTP 403 Forbidden
+    View --> Admin : Exibe erro: "Acesso Negado: Você não possui permissão..."
+else Justificativa em branco ou menor que 15 caracteres [A1]
+    Ctrl --> View : HTTP 422 Unprocessable Entity
+    View --> Admin : Alerta visual: "Erro na validação dos dados: O campo justificativa..."
+else Validação de regras temporais da escala (RN007)
+    Ctrl -> DB : SELECT data, hora_inicio FROM escalas WHERE id = id
+    activate DB
+    DB --> Ctrl : Metadados temporais da escala
+    deactivate DB
+    
+    alt Plantão da escala já iniciado ou finalizado [A3]
+        Ctrl --> View : HTTP 400 Bad Request
+        View --> Admin : Exibe erro: "Operação Cancelada: Não é permitido inativar..."
+    else Validações aceitas com sucesso (Fluxo Principal)
+        Ctrl -> DB : UPDATE escalas SET is_active = false WHERE id = id
+        activate DB
+        DB --> Ctrl : Escrita lógica confirmada (RF010)
+        deactivate DB
+        
+        Ctrl -> DB : INSERT INTO logs_auditoria (...)
+        activate DB
+        DB --> Ctrl : Histórico de auditoria persistido
+        deactivate DB
+        
+        Ctrl --> View : HTTP 200 OK
+        deactivate Ctrl
+        View --> Admin : Exibe notificação: "Escala operacional excluída logicamente com sucesso!"
+    end alt
+end alt
+deactivate View
+@enduml

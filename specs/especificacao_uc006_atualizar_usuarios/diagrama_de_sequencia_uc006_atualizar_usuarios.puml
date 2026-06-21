@@ -1,0 +1,67 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+
+actor "Administrador" as Admin
+boundary "FormUsuarioView" as View
+control "UsuarioController" as Ctrl
+database "PostgreSQL_DB" as DB
+
+box "Frontend" #LightBlue
+    participant View
+end box
+
+box "Backend" #LightYellow
+    participant Ctrl
+    participant DB
+end box
+
+Admin -> View : Acessa funcionalidade "Atualizar Usuário"
+activate View
+View -> Ctrl : GET /api/usuarios/{id}
+activate Ctrl
+Ctrl -> DB : SELECT * FROM usuarios WHERE id = id
+activate DB
+DB --> Ctrl : Registro do usuário encontrado
+deactivate DB
+Ctrl --> View : HTTP 200 OK (Dados Atuais)
+deactivate Ctrl
+View --> Admin : Renderiza formulário preenchido
+
+Admin -> View : Altera os campos e clica em "Salvar Alterações"
+View -> Ctrl : PUT /api/usuarios/{id} (Dados Modificados)
+activate Ctrl
+
+note over Ctrl : Valida perfil e permissões (RF002, RN004)
+
+alt Sem permissão administrativa [A2]
+    Ctrl --> View : HTTP 403 Forbidden
+    View --> Admin : Exibe mensagem: "Acesso Negado: Você não possui permissão..."
+else Token expirado ou inválido [A2]
+    Ctrl --> View : HTTP 401 Unauthorized
+    View --> Admin : Redireciona para login / Mensagem de erro
+else Validação cadastral falhou [A1]
+    Ctrl --> View : HTTP 400 Bad Request
+    View --> Admin : Alerta visual campo E-mail: "Erro na validação dos dados..."
+else Validação de regras de negócio (RN001)
+    alt Usuário possui escala pendente e tentou inativar [A3]
+        Ctrl --> View : HTTP 422 Unprocessable Entity
+        View --> Admin : Exibe erro: "Operação Cancelada: Não é possível desativar..."
+    else Sucesso total (Fluxo Principal)
+        Ctrl -> DB : UPDATE usuarios SET nome, email, perfil, setor, status WHERE id = id
+        activate DB
+        DB --> Ctrl : Escrita confirmada
+        deactivate DB
+        
+        Ctrl -> DB : INSERT INTO logs_auditoria (...)
+        activate DB
+        DB --> Ctrl : Rastro de auditoria salvo (RN005, RF025)
+        deactivate DB
+        
+        Ctrl --> View : HTTP 200 OK
+        deactivate Ctrl
+        View --> Admin : Exibe notificação: "Usuário atualizado com sucesso!"
+    end alt
+end alt
+deactivate View
+@enduml
