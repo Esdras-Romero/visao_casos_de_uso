@@ -1,0 +1,47 @@
+@startuml
+skinparam conditionStyle inside
+
+start
+
+:Administrador do Sistema acessa o módulo de manutenção e infraestrutura [RF704];
+:Sistema verifica as credenciais do usuário na matriz de privilégios (RBAC) [RNF202];
+
+if (Usuário possui perfil de Administrador do Sistema?) then (Não)
+    :Bloqueia o endpoint e reporta tentativa de acesso indevido (A2);
+    :Exibe: "Acesso Negado: A execução manual de rotinas...";
+    stop
+else (Sim)
+    :Carrega a console técnica com métricas de armazenamento local/nuvem;
+    :Ator define o escopo do dump, destino e aciona "Iniciar Processamento";
+    
+    if (O Tipo_Backup ou o Destino_Armazenamento foram selecionados?) then (Não)
+        :Interrompe o início do script do motor de extração (A1);
+        :Exibe: "Erro de Configuração: É obrigatório especificar...";
+        stop
+    else (Sim)
+        :Bloqueia momentaneamente a fila de escrita para consistência;
+        :Gera o dump bruto das tabelas e esquemas lógicos da base;
+        :Compacta os dados extraídos no contêiner '.tar.gz';
+        
+        if (A flag de Criptografia Adicional está habilitada?) then (Sim)
+            :Aplica criptografia de chave simétrica em repouso AES-256 [RN004];
+        else (Não)
+        end if
+        
+        :Calcula a assinatura digital única SHA-256 do arquivo gerado;
+        :Inicia a transmissão assíncrona do binário para o repositório seguro;
+        
+        if (O storage remoto reportou erro de espaço ou houve timeout de rede?) then (Sim)
+            :Executa o expurgo dos arquivos temporários locais criados (A3);
+            :Exibe: "Falha de Infraestrutura: Espaço em disco...";
+            stop
+        else (Não)
+            :Valida o hash do arquivo no destino contra o hash local de origem;
+            :Persiste os metadados técnicos de forma imutável na tabela de auditoria [RN005][RNF205];
+            :Libera o semáforo de transações e exibe mensagem de sucesso na tela;
+            stop
+        end if
+    end if
+end if
+
+@enduml

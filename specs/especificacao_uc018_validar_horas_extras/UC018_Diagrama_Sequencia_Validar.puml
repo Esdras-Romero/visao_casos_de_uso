@@ -1,0 +1,72 @@
+@startuml
+autonumber
+skinparam handwritten false
+skinparam monochrome false
+
+actor "Diretoria Operacional" as Diretor
+boundary "PainelValidacaoView" as View
+control "ValidacaoController" as Controller
+database "SIG_GCM_Database" as DB
+
+Diretor -> View : acessarTelaValidar()
+activate View
+View -> Controller : verificarPermissoesDiretoria(usuarioLogado)
+activate Controller
+Controller -> DB : consultarPerfil(idUsuario)
+activate DB
+DB --> Controller : perfilConfirmado
+deactivate DB
+
+alt Perfil Não Autorizado [RNF202]
+    Controller --> View : erroAcessoNegado
+    View --> Diretor : Exibe "Acesso Negado: Seu perfil..."
+else Perfil Autorizado [Diretoria Operacional]
+    Controller -> DB : buscarHorasExtrasPendentes()
+    activate DB
+    DB --> Controller : listaRegistrosPendentes
+    deactivate DB
+    Controller --> View : renderizarTela(listaRegistrosPendentes)
+    View --> Diretor : Exibe lista de pendências na interface
+    deactivate Controller
+end
+
+Diretor -> View : selecionarRegistro(ID_Hora_Extra)
+Diretor -> View : preencherParecer(Decisao, Justificativa)
+Diretor -> View : clicarConfirmarParecer()
+
+View -> Controller : homologarParecer(ID_Hora_Extra, Decisao, Justificativa)
+activate Controller
+
+alt Decisao == REPROVADO E Justificativa Vazia (A1)
+    Controller --> View : falhaJustificativaObrigatoria
+    View --> Diretor : Exibe "Erro de validação: O campo..."
+else Dados do Parecer Estruturados
+    Controller -> DB : verificarConformidadeLegalEOrcamento(ID_Hora_Extra)
+    activate DB
+    Note over DB : Valida conformidade [RF702]\ne dotação parametrizada [RF903]
+    DB --> Controller : resultadoValidacaoRegras
+    deactivate DB
+    
+    alt Violou Regra de Negócio / Teto Excedido (A3)
+        Controller --> View : erroConformidade(mensagemErro)
+        View --> Diretor : Exibe Mensagem Exata (Ex: "Operação Recusada: Limite...")
+    else Regras de Integridade Aprovadas
+        Controller -> DB : atualizarStatusHoraExtra(ID_Hora_Extra, Decisao, Justificativa)
+        activate DB
+        DB --> Controller : statusAtualizadoConfirmado
+        deactivate DB
+        
+        Controller -> DB : gravarLogOperacional(dadosAuditoria)
+        activate DB
+        Note over DB : Trilha imutável de alteração [RF704][RNF205]
+        DB --> Controller : logAuditoriaSalvo
+        deactivate DB
+        
+        Controller --> View : sucessoValidacao
+        View --> Diretor : Exibe "Parecer processado com sucesso!"
+    end
+end
+deactivate Controller
+deactivate View
+
+@enduml

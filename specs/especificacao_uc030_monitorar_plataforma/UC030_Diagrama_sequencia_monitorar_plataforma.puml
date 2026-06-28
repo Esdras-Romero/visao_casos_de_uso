@@ -1,0 +1,83 @@
+@startuml
+autonumber
+skinparam handwritten false
+skinparam monochrome false
+
+actor "Administrador do Sistema" as Admin
+boundary "MonitorarPlataformaView" as View
+control "MonitoramentoController" as Controller
+control "TelemetryWebSocketService" as Service
+entity "TelemetryDaemon" as Daemon
+database "SIG_GCM_Database" as DB
+
+Admin -> View : acessarDashboardMonitoramento()
+activate View
+View -> Controller : verificarAcessoTelemetria(usuarioLogado)
+activate Controller
+
+Controller -> DB : verificarPerfilSysAdmin(idUsuario)
+activate DB
+DB --> Controller : respostaPerfilSysAdmin
+deactivate DB
+
+alt Perfil Incorreto [RNF202]
+    Controller --> View : erroAcessoNegado
+    View --> Admin : Exibe "Acesso Negado: A visualização de telemetria..."
+else Perfil Autorizado [SysAdmin]
+    Controller --> View : renderizarDashboardVazio()
+    View --> Admin : Apresenta layout dos painéis e seletores técnicos
+    deactivate Controller
+end
+
+Admin -> View : configurarFiltros(Janela_Tempo, Metrica_Alvo, Frequencia_Refresh)
+Admin -> View : clicarAtivarMonitoramento()
+
+View -> Controller : iniciarFluxoTelemetria(parametros)
+activate Controller
+
+Controller -> Controller : validarFrequenciaRefresh(Frequencia_Refresh)
+alt Frequência de Amostragem Inválida / Menor que 5s (A1)
+    Controller --> View : erroFrequenciaInvalida
+    View --> Admin : Exibe "Erro de Parâmetro: A frequência de amostragem..."
+else Parâmetros Homologados
+    Controller -> Service : abrirCanalWebSocket(parametros)
+    activate Service
+    
+    Service -> Daemon : conectarAgenteColeta()
+    activate Daemon
+    
+    alt Daemon Offline / Perda de Conexão (A3)
+        Daemon --> Service : falhaConexaoAgente
+        Service --> Controller : erroColetaTelemetria
+        Controller --> View : interrupcaoSinalMonitoramento
+        View --> Admin : Alarme sonoro + Exibe "Falha de Monitoramento: Interrupção..."
+    else Conexão Estabelecida ["Live Telemetry"]
+        Daemon --> Service : streamDadosMetricasBrutas
+        
+        Service -> Service : processarMetricasFluxo(streamDadosMetricasBrutas)
+        Note over Service : Compacta e expurga após 7 dias [RN005]
+        
+        alt Uso de Hardware > 92% por 3 min [RN004]
+            Service -> Controller : dispararAlertaSaturacaoCritica()
+            Controller -> View : renderizarAlertaPushEmergencia()
+        end
+        
+        Service --> Controller : payloadTelemetriaTratado
+        deactivate Daemon
+        
+        Controller -> DB : gravarLogInicioSessaoMonitor(usuarioLogado)
+        activate DB
+        Note over DB : Registra em tb_sys_monitor_access [RNF205]
+        DB --> Controller : sessaoAuditada
+        deactivate DB
+        
+        Controller --> View : pushDadosGraficos(payloadTelemetriaTratado)
+        deactivate Service
+        
+        View --> Admin : Atualiza gauges e curvas de desempenho em tempo real
+    end
+end
+deactivate Controller
+deactivate View
+
+@enduml

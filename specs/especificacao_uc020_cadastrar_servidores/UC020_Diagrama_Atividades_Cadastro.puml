@@ -1,0 +1,40 @@
+@startuml
+skinparam conditionStyle inside
+
+start
+
+:Operador do Setor de RH solicita acesso ao formulário de cadastro [RF601];
+:Sistema analisa o perfil do usuário logado via RBAC [RNF202];
+
+if (Usuário possui credenciais do Setor de RH?) then (Não)
+    :Exibe mensagem: "Acesso Negado: Seu perfil de usuário...";
+    stop
+else (Sim)
+    :Sistema exibe o formulário de cadastro limpo [RNF301];
+    :Operador insere as informações e aciona "Salvar Cadastro";
+    
+    if (Campos obrigatórios vazios OU CPF inválido matematizável?) then (Sim)
+        :Destaca os campos inconsistentes em vermelho;
+        :Exibe mensagem de erro estrutural na interface (A1);
+        stop
+    else (Não)
+        :Sistema valida integridade temporal da dotação de admissão;
+        if (Data_Admissao informada é posterior à data de hoje?) then (Sim)
+            :Exibe mensagem: "Erro cronológico: A data de admissão...";
+            stop
+        else (Não)
+            :Consulta base unificada para validar chaves exclusivas;
+            if (Matrícula ou CPF já existem na base de dados?) then (Sim)
+                :Exibe mensagem: "Operação Recusada: Já existe um servidor...";
+                stop
+            else (Não)
+                :Insere o registro na tabela com status padrão "ATIVO" [RF601];
+                :Registra a ação na trilha imutável de logs de auditoria [RF704][RNF205];
+                :Apresenta mensagem visual de sucesso e limpa os campos;
+                stop
+            end if
+        end if
+    end if
+end if
+
+@enduml

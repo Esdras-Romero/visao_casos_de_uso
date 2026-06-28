@@ -1,0 +1,66 @@
+@startuml
+autonumber
+skinparam handwritten false
+skinparam monochrome false
+
+actor "Supervisor Operacional" as Supervisor
+boundary "FormHoraExtraView" as View
+control "HoraExtraController" as Controller
+database "SIG_GCM_Database" as DB
+
+Supervisor -> View : acessarTelaRegistrar()
+activate View
+View -> Controller : verificarPermissoes(usuarioAtor)
+activate Controller
+Controller -> DB : buscarPerfilUsuario(idUsuario)
+activate DB
+DB --> Controller : perfilConfirmado
+deactivate DB
+
+alt Perfil Não Autorizado (A2)
+    Controller --> View : erroPermissao
+    View --> Supervisor : Exibe "Acesso Negado: Seu perfil..."
+else Perfil Autorizado
+    Controller --> View : telaLiberada
+    View --> Supervisor : Renderiza formulário limpo
+    deactivate Controller
+end
+
+Supervisor -> View : preencherDados(ID_Plantao, Matricula, Data, Horarios, Justificativa)
+Supervisor -> View : clicarBotaoSalvar()
+
+View -> Controller : processarRegistro(dadosHoraExtra)
+activate Controller
+
+Controller -> Controller : validarCamposObrigatorios(dadosHoraExtra)
+alt Campos Inválidos ou Em Branco (A1)
+    Controller --> View : falhaValidacaoCampos
+    View --> Supervisor : Exibe "Erro de validação: O campo..."
+else Campos Preenchidos Corretamente
+    Controller -> DB : validarRegrasNegocio(Matricula, Data, Horarios)
+    activate DB
+    DB --> Controller : resultadoValidacoesBD
+    deactivate DB
+    
+    alt Violou Regra (Afastado / Conflito / Sem Justificativa) (A3)
+        Controller --> View : erroRegraNegocio(codigoErro)
+        View --> Supervisor : Exibe Mensagem Exata do Erro (Ex: "Conflito de Escala...")
+    else Regras de Negócio Aprovadas
+        Controller -> DB : salvarRegistroHoraExtra(dadosHoraExtra, status="Pendente")
+        activate DB
+        DB --> Controller : confirmacaoGravacao
+        deactivate DB
+        
+        Controller -> DB : gravarLogAuditoria(logDadosCriticos)
+        activate DB
+        DB --> Controller : logSalvo
+        deactivate DB
+        
+        Controller --> View : sucessoOperacao
+        View --> Supervisor : Exibe "Registro inserido com sucesso!"
+    end
+end
+deactivate Controller
+deactivate View
+
+@enduml

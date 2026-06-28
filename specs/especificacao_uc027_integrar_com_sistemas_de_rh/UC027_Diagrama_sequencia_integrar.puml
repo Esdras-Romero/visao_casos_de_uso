@@ -1,0 +1,74 @@
+@startuml
+autonumber
+skinparam handwritten false
+skinparam monochrome false
+
+actor "Setor de RH" as RH
+boundary "IntegrarRHView" as View
+control "IntegracaoController" as Controller
+control "RHIntegrationService" as Service
+database "SIG_GCM_Database" as DB
+
+RH -> View : acessarTelaIntegracao()
+activate View
+View -> Controller : verificarPermissaoRH(usuarioLogado)
+activate Controller
+
+Controller -> DB : consultarPerfilUsuario(idUsuario)
+activate DB
+DB --> Controller : respostaPerfilUsuario
+deactivate DB
+
+alt Perfil Incorreto [RNF202]
+    Controller --> View : erroAcessoNegado
+    View --> RH : Exibe "Acesso Negado: A execução de sincronizações..."
+else Perfil Autorizado [Setor de RH]
+    Controller --> View : habilitarControlesIntegracao()
+    View --> RH : Apresenta seletores e status do barramento
+    deactivate Controller
+end
+
+RH -> View : informarParametros(Tipo_Operacao, Matricula_Filtro, Token_Sessao_RH)
+RH -> View : clicarIniciarSincronizacao()
+
+View -> Controller : executarSincronizacao(parametros)
+activate Controller
+
+Controller -> Controller : validarFormatoToken(Token_Sessao_RH)
+alt Token Malformado (A1)
+    Controller --> View : erroTokenInvalido
+    View --> RH : Exibe "Erro de Autenticação Interna: O token de sessão..."
+else Token Estruturalmente Válido
+    Controller -> Service : requisitarDadosExternos(parametros)
+    activate Service
+    
+    Service -> Service : estabelecerConexaoSeguraTLS()
+    
+    alt API Externa Indisponível / Timeout (A3)
+        Service --> Controller : erroComunicacaoAPI
+        Controller --> View : falhaIntegracaoAPI
+        View --> RH : Exibe "Falha de Comunicação: O sistema de RH externo..."
+    else Resposta Sucesso API Externo [HTTP 200]
+        Service --> Controller : payloadDadosCadastraisJSON
+        deactivate Service
+        
+        Controller -> DB : atualizarDadosCadastrais(payloadDadosCadastraisJSON)
+        activate DB
+        Note over DB : Executa carga na tb_servidor\nAplica RN006 e RN007
+        DB --> Controller : confirmacaoCommitDados
+        deactivate DB
+        
+        Controller -> DB : salvarLogIntegracao(dadosTransacao, usuarioLogado)
+        activate DB
+        Note over DB : Grava Log na tb_audit_integration [RNF205]
+        DB --> Controller : logGravado
+        deactivate DB
+        
+        Controller --> View : sucessoSincronizacaoGeral
+        View --> RH : Exibe "Integração realizada com sucesso!..."
+    end
+end
+deactivate Controller
+deactivate View
+
+@enduml

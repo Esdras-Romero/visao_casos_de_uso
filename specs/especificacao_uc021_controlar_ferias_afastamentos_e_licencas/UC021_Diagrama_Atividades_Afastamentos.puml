@@ -1,0 +1,37 @@
+@startuml
+skinparam conditionStyle inside
+
+start
+
+:Operador de RH solicita gerenciar situação de servidor [RF601];
+:Sistema verifica regras de perfil baseadas em RBAC [RNF202];
+
+if (Usuário pertence ao Setor de RH?) then (Não)
+    :Exibe mensagem: "Acesso Negado: Alterações de prontuário...";
+    stop
+else (Sim)
+    :Carrega histórico funcional e libera campos de preenchimento;
+    :Operador insere dados do afastamento e aciona "Gravar";
+    
+    if (Campos obrigatórios em branco OU Data_Inicio > Data_Fim?) then (Sim)
+        :Sinaliza erro de validação local na interface (A1);
+        :Exibe mensagem correspondente ao erro de entrada;
+        stop
+    else (Não)
+        :Sistema executa varredura de interseção cronológica na base;
+        if (Existe outro afastamento ativo na mesma janela temporal?) then (Sim)
+            :Barra a gravação por violação de consistência (A3);
+            :Exibe: "Operação Cancelada: O período informado sobrepõe-se...";
+            stop
+        else (Não)
+            :Persiste o registro na tabela de histórico de afastamentos;
+            :Atualiza o status corrente do servidor para o tipo escolhido;
+            :Marca bloqueio de escala para o período delimitado [RF602];
+            :Grava log operacional criptográfico na trilha de auditoria [RF704][RNF205];
+            :Notifica o usuário com mensagem de sucesso na interface;
+            stop
+        end if
+    end if
+end if
+
+@enduml

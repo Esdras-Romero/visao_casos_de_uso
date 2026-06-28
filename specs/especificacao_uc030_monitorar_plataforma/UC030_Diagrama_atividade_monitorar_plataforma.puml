@@ -1,0 +1,52 @@
+@startuml
+skinparam conditionStyle inside
+
+start
+
+:Administrador do Sistema solicita acesso ao painel de telemetria [RF704];
+:Sistema avalia os privilégios do token administrativo na matriz (RBAC) [RNF202];
+
+if (Usuário possui perfil de Administrador do Sistema?) then (Não)
+    :Bloqueia a renderização das rotas e dashboards técnicos (A2);
+    :Exibe: "Acesso Negado: A visualização de telemetria...";
+    stop
+else (Sim)
+    :Carrega a estrutura básica do dashboard com contêineres de gráficos vazios;
+    :Ator define a janela de amostragem, métricas e o refresh de atualização;
+    
+    if (Frequencia_Refresh é inferior ao limite de segurança de 5 segundos?) then (Sim)
+        :Rejeita a alteração e mantém a configuração padrão estável (A1);
+        :Exibe: "Erro de Parâmetro: A frequência de amostragem...";
+        stop
+    else (Não)
+        :Abre canal de comunicação bidirecional de baixa latência (WebSocket);
+        :Tenta realizar o handshake com o daemon interno de telemetria do servidor;
+        
+        if (O agente de coleta está offline ou parou de transmitir dados?) then (Sim)
+            :Dispara alarme sonoro local e congela as curvas de tela (A3);
+            :Exibe: "Falha de Monitoramento: Interrupção na coleta...";
+            stop
+        else (Não)
+            :Inicia a recepção contínua do fluxo assíncrono de hardware e rede;
+            :Consolida os metadados de abertura na tabela de auditoria [RNF205];
+            
+            repeat
+                :Lê contadores de CPU, memória, latência SQL e erros HTTP;
+                :Aplica algoritmo de expurgo cronológico para dados com mais de 7 dias [RN005];
+                
+                if (O consumo de hardware excede 92% por mais de 3 minutos?) then (Sim)
+                    :Dispara alertas push automáticos de saturação na interface [RN004];
+                else (Não)
+                end if
+                
+                :Injeta e renderiza as novas métricas nas curvas e gauges da tela;
+            backward:Aguardar intervalo definido em Frequencia_Refresh;
+            repeat while (Aba do navegador permanece ativa pelo SysAdmin?)
+            
+            :Registra o encerramento da sessão de monitoramento em log;
+            stop
+        end if
+    end if
+end if
+
+@enduml

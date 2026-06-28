@@ -1,0 +1,68 @@
+@startuml
+autonumber
+skinparam handwritten false
+skinparam monochrome false
+
+actor "Setor de RH" as RH
+boundary "CadastroServidorView" as View
+control "ServidorController" as Controller
+database "SIG_GCM_Database" as DB
+
+RH -> View : acessarTelaCadastro()
+activate View
+View -> Controller : verificarPermissoesRH(usuarioLogado)
+activate Controller
+Controller -> DB : consultarPerfilUsuario(idUsuario)
+activate DB
+DB --> Controller : perfilConfirmado
+deactivate DB
+
+alt Perfil Não Autorizado [RNF202]
+    Controller --> View : erroAcessoNegado
+    View --> RH : Exibe "Acesso Negado: Seu perfil..."
+else Perfil Autorizado [Setor de RH]
+    Controller --> View : liberarFormulario
+    View --> RH : Renderiza formulário limpo [RNF301]
+    deactivate Controller
+end
+
+RH -> View : preencherDados(Matricula, CPF, Nome, Cargo, DataAdmissao)
+RH -> View : clicarBotaoSalvar()
+
+View -> Controller : processarInclusao(dadosServidor)
+activate Controller
+
+Controller -> Controller : validarFormatosECampos(dadosServidor)
+alt Campos Inválidos ou CPF Incorreto (A1)
+    Controller --> View : falhaValidacaoCampos
+    View --> RH : Exibe "Erro de validação / Formato..."
+else Dados Estruturalmente Válidos
+    Controller -> DB : checarDuplicidadeEData(Matricula, CPF, DataAdmissao)
+    activate DB
+    Note over DB : Verifica unicidade de dados\ne restrição de data futura
+    DB --> Controller : resultadoChecagemBD
+    deactivate DB
+    
+    alt Registro Duplicado ou Data Futura (A3)
+        Controller --> View : erroRegraNegocio(codigoErro)
+        View --> RH : Exibe Mensagem Exata (Ex: "Operação Recusada: Já existe...")
+    else Regras de Integridade Aprovadas
+        Controller -> DB : persistirNovoServidor(dadosServidor, status="ATIVO")
+        activate DB
+        DB --> Controller : confirmacaoInclusao
+        deactivate DB
+        
+        Controller -> DB : gravarLogOperacional(dadosAuditoria)
+        activate DB
+        Note over DB : Grava Log Imutável [RF704][RNF205]
+        DB --> Controller : logGravado
+        deactivate DB
+        
+        Controller --> View : sucessoCadastro
+        View --> RH : Exibe "Servidor cadastrado com sucesso!"
+    end
+end
+deactivate Controller
+deactivate View
+
+@enduml

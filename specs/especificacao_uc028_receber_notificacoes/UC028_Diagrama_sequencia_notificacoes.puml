@@ -1,0 +1,72 @@
+@startuml
+autonumber
+skinparam handwritten false
+skinparam monochrome false
+
+actor "Usuário do Sistema" as User
+boundary "CentralNotificacoesView" as View
+control "NotificacaoController" as Controller
+control "NotificationDeliveryService" as Service
+database "SIG_GCM_Database" as DB
+
+User -> View : acessarCentralNotificacoes()
+activate View
+View -> Controller : buscarNotificacoesPendentes(usuarioLogado)
+activate Controller
+
+Controller -> DB : consultarNotificacoesUsuario(idUsuario)
+activate DB
+DB --> Controller : listaNotificacoesPreenchida
+deactivate DB
+
+Controller --> View : renderizarListaNotificacoes(listaNotificacoesPreenchida)
+View --> User : Apresenta o painel cronológico com contador de não lidas
+deactivate Controller
+
+User -> View : selecionarNotificacao(ID_Notificacao)
+User -> View : acionarAcaoLeitura(MARCAR_COMO_LIDA)
+
+View -> Controller : processarMudancaStatus(ID_Notificacao, Acao_Leitura)
+activate Controller
+
+Controller -> DB : verificarPropriedadeMensagem(ID_Notificacao, usuarioLogado)
+activate DB
+DB --> Controller : statusPropriedade
+
+alt Tentativa de Acesso a Mensagem de Terceiros (A2)
+    Controller --> View : erroViolacaoPrivacidade
+    View --> User : Exibe "Acesso Negado: Você não possui autorização..."
+else Dono da Notificação Confirmado
+    Controller -> Controller : verificarRestricaoExclusao(ID_Notificacao)
+    
+    alt Tentativa de Excluir Convocação Crítica (A3)
+        Controller --> View : erroOperacaoRecusada
+        View --> User : Exibe "Operação Recusada: Avisos de convocação..."
+    else Operação Permitida pela Regra de Negócio
+        Controller -> Service : atualizarStatusParaLido(ID_Notificacao)
+        activate Service
+        
+        Service -> DB : executarUpdateStatusNotificacao(ID_Notificacao)
+        activate DB
+        Note over DB : Altera status para 'LIDA'\nRegistra timestamp 2026 [RN009]
+        DB --> Service : updateConfirmado
+        deactivate DB
+        
+        alt Notificação é do Tipo Urgente/Convocação [RNF205]
+            Service -> DB : registrarAuditoriaLeituraCritica(ID_Notificacao, usuarioLogado)
+            activate DB
+            DB --> Service : logLeituraGravado
+            deactivate DB
+        end
+        
+        Service --> Controller : statusAtualizadoComSucesso
+        deactivate Service
+        
+        Controller --> View : confirmarLeituraInterface
+        View --> User : Atualiza contador e esmaece a notificação em tela
+    end
+end
+deactivate Controller
+deactivate View
+
+@enduml

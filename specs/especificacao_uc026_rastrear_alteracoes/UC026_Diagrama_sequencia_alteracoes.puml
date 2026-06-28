@@ -1,0 +1,37 @@
+@startuml
+skinparam conditionStyle inside
+
+start
+
+:Administrador do Sistema solicita acesso à gravação de logs manuais [RF704];
+:Sistema analisa o nível de privilégio do token do usuário (RBAC) [RNF202];
+
+if (Usuário possui perfil de Administrador do Sistema?) then (Não)
+    :Bloqueia envio de pacotes e emite alerta de violação (A2);
+    :Exibe: "Acesso Negado: A gravação manual de...";
+    stop
+else (Sim)
+    :Carrega formulário com campos de módulo, severidade e payload;
+    :Ator preenche as especificações técnicas e aciona "Gravar Registro";
+    
+    if (O texto em Payload_Dados é um JSON semanticamente válido?) then (Não)
+        :Sinaliza erro estrutural nos campos da interface (A1);
+        :Exibe: "Erro de Validação: O payload de dados...";
+        stop
+    else (Sim)
+        :Sistema valida a ordem cronológica do evento frente aos logs existentes;
+        if (O evento tenta forçar um timestamp retroativo inválido?) then (Sim)
+            :Barra a inserção para proteger a integridade da linha temporal (A3);
+            :Exibe: "Operação Rejeitada: Violação de diretriz...";
+            stop
+        else (Não)
+            :Invoca componente criptográfico para cálculo do hash SHA-256 [RN005];
+            :Insere o registro de forma permanente e intocável na base [RN004];
+            :Grava entrada correspondente no rastreador de segurança do sistema;
+            :Apresenta banner verde de operação concluída com sucesso;
+            stop
+        end if
+    end if
+end if
+
+@enduml

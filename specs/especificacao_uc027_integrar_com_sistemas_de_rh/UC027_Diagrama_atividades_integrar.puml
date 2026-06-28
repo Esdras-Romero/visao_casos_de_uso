@@ -1,0 +1,39 @@
+@startuml
+skinparam conditionStyle inside
+
+start
+
+:Profissional do Setor de RH solicita acesso ao módulo de integração [RF705];
+:Sistema avalia o token de sessão contra a matriz de papéis (RBAC) [RNF202];
+
+if (Usuário possui perfil do Setor de RH?) then (Não)
+    :Bloqueia o tráfego de rede para a funcionalidade (A2);
+    :Exibe: "Acesso Negado: A execução de sincronizações...";
+    stop
+else (Sim)
+    :Apresenta painel com seletores de operação e status de conexão;
+    :Ator parametriza os filtros, insere o token e clica em "Iniciar Sincronização";
+    
+    if (Token_Sessao_RH segue o formato criptográfico esperado?) then (Não)
+        :Interrompe o envio do pacote de dados localmente (A1);
+        :Exibe: "Erro de Autenticação Interna: O token de sessão...";
+        stop
+    else (Sim)
+        :Sistema abre conexão segura via HTTPS/REST com o barramento da Prefeitura;
+        :Dispara a requisição de payload para o endpoint externo do ERP de RH;
+        
+        if (API externa está indisponível ou estourou o tempo de timeout?) then (Sim)
+            :Executa Rollback das operações parciais na memória volatíl (A3);
+            :Exibe: "Falha de Comunicação: O sistema de RH externo...";
+            stop
+        else (Não)
+            :Consome e valida o pacote de dados cadastrais retornado;
+            :Aplica regras de negócio e atualiza a tabela local de servidores [RN006][RN007];
+            :Grava entrada definitiva de sincronização na tabela de auditoria [RNF205];
+            :Recarrega a tela de interface e exibe modal visual de sucesso;
+            stop
+        end if
+    end if
+end if
+
+@enduml

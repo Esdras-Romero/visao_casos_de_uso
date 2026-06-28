@@ -1,0 +1,43 @@
+@startuml
+skinparam conditionStyle inside
+
+start
+
+:Administrador Institucional requisita ferramenta de vinculação [RF603];
+:Sistema analisa papel do usuário autenticado no ecossistema [RNF202];
+
+if (Usuário possui perfil de Administrador Institucional?) then (Não)
+    :Exibe mensagem: "Acesso Negado: A movimentação hierárquica...";
+    stop
+else (Sim)
+    :Carrega listagem unificada de servidores e árvore de setores ativos;
+    :Ator seleciona as entidades e clica em "Confirmar Vínculo";
+    
+    if (Falta selecionar Servidor OU Setor?) then (Sim)
+        :Interrompe o envio de dados da interface (A1);
+        :Exibe mensagem: "Erro de seleção: É mandatório...";
+        stop
+    else (Não)
+        :Sistema verifica o status operacional do setor selecionado;
+        if (O setor de destino está INATIVO?) then (Sim)
+            :Bloqueia operação por inconsistência cadastral (A3);
+            :Exibe: "Operação Recusada: O setor selecionado...";
+            stop
+        else (Não)
+            :Sistema valida cronologia da Data_Vinculo com a admissão;
+            if (Data_Vinculo é menor que a Data_Admissao do guarda?) then (Sim)
+                :Bloqueia gravação por erro cronológico (A3);
+                :Exibe: "Inconsistência Cronológica: A data de vinculação...";
+                stop
+            else (Não)
+                :Persiste a nova alocação na tabela associativa;
+                :Sincroniza escopo e privilégios territoriais do servidor;
+                :Escreve registro criptográfico no log de auditoria [RF704][RNF205];
+                :Emite mensagem de sucesso e atualiza o organograma;
+                stop
+            end if
+        end if
+    end if
+end if
+
+@enduml

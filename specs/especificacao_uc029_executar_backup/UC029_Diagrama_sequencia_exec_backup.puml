@@ -1,0 +1,94 @@
+@startuml
+autonumber
+skinparam handwritten false
+skinparam monochrome false
+
+actor "Administrador do Sistema" as Admin
+boundary "ExecutarBackupView" as View
+control "BackupController" as Controller
+control "BackupEngineService" as Engine
+database "SIG_GCM_Database" as DB
+entity "Storage_Destino" as Storage
+
+Admin -> View : acessarModuloBackup()
+activate View
+View -> Controller : validarPermissoesSysAdmin(usuarioLogado)
+activate Controller
+
+Controller -> DB : verificarPerfilSysAdmin(idUsuario)
+activate DB
+DB --> Controller : confirmaPerfilSysAdmin
+deactivate DB
+
+alt Perfil Incorreto [RNF202]
+    Controller --> View : erroAcessoNegado
+    View --> Admin : Exibe "Acesso Negado: A execução manual de rotinas..."
+else Perfil Autorizado [SysAdmin]
+    Controller --> View : liberarPainelBackup()
+    View --> Admin : Apresenta seletores e indicador de espaço em disco
+    deactivate Controller
+end
+
+Admin -> View : informarParametros(Tipo_Backup, Destino_Armazenamento, Criptografia_Adicional)
+Admin -> View : clicarIniciarProcessamento()
+
+View -> Controller : dispararRotinaBackup(parametros)
+activate Controller
+
+Controller -> Controller : checarPreenchimentoFiltros(Tipo_Backup)
+alt Escopo Não Informado (A1)
+    Controller --> View : erroFiltroIncompleto
+    View --> Admin : Exibe "Erro de Configuração: É obrigatório especificar..."
+else Parametros Estruturalmente Validados
+    Controller -> Engine : iniciarExtracaoDados(parametros)
+    activate Engine
+    
+    Engine -> DB : congelarTransacoesTemporario()
+    activate DB
+    DB --> Engine : transacoesCongeladas
+    deactivate DB
+    
+    Engine -> DB : extrairDumpDados()
+    activate DB
+    DB --> Engine : rawDumpDados
+    deactivate DB
+    
+    Engine -> DB : liberarTransacoes()
+    
+    Engine -> Engine : compactarPacoteTarGz(rawDumpDados)
+    
+    alt Flag Criptografia_Adicional Ativa [RN004]
+        Engine -> Engine : cifrarAlgoritmoAES256()
+    end
+    
+    Engine -> Engine : calcularHashSHA256()
+    
+    Engine -> Storage : transferirBinarioCifrado(arquivoBackup)
+    activate Storage
+    
+    alt Insuficiência de Espaço ou Queda de Link (A3)
+        Storage --> Engine : falhaGravacaoStorage
+        Engine --> Controller : erroInfraestruturaBackup
+        Controller --> View : falhaGravacaoDisco
+        View --> Admin : Exibe "Falha de Infraestrutura: Espaço em disco..."
+    else Transferência Concluída e Validada
+        Storage --> Engine : confirmacaoUploadComHashValidado
+        deactivate Storage
+        
+        Engine --> Controller : metadadosBackupGerado(tamanho, hash)
+        deactivate Engine
+        
+        Controller -> DB : salvarMetadadosAuditados(metadados, usuarioLogado)
+        activate DB
+        Note over DB : Grava em tb_sys_backup_audit\nRegistro Permanente [RN005][RNF205]
+        DB --> Controller : logBackupSalvo
+        deactivate DB
+        
+        Controller --> View : sucessoExecucaoBackup
+        View --> Admin : Exibe "Cópia de segurança gerada com sucesso!..."
+    end
+end
+deactivate Controller
+deactivate View
+
+@enduml

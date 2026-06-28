@@ -1,0 +1,38 @@
+@startuml
+skinparam conditionStyle inside
+
+start
+
+:Usuário do Comando solicita acesso à emissão de relatórios [RF702];
+:Sistema analisa o perfil de acesso baseado em RBAC [RNF202];
+
+if (Possui perfil de Comando?) then (Não)
+    :Exibe mensagem: "Acesso Negado: Seu perfil de usuário...";
+    stop
+else (Sim)
+    :Interface exibe os filtros de data, matrícula e formato [RNF301];
+    :Ator define os parâmetros de busca e solicita a emissão;
+    
+    if (Data_Inicio é maior que a Data_Fim?) then (Sim)
+        :Bloqueia envio e sinaliza inconsistência nos campos;
+        :Exibe mensagem: "Erro nos parâmetros: A data inicial...";
+        stop
+    else (Não)
+        :Sistema executa query de consolidação no banco de dados [RF701];
+        
+        if (A busca retornou zero registros para os filtros?) then (Sim)
+            :Cancela a geração do arquivo;
+            :Exibe mensagem: "Pesquisa sem resultados: Não existem...";
+            stop
+        else (Não)
+            :Compila os indicadores de dotação e conformidade legal [RF702];
+            :Gera o arquivo binário final no formato escolhido (PDF/CSV);
+            :Grava o registro de auditoria na tabela de logs imutáveis [RNF205];
+            :Dispara o download automático do documento na interface;
+            :Exibe notificação visual de sucesso na operação;
+            stop
+        end if
+    end if
+end if
+
+@enduml

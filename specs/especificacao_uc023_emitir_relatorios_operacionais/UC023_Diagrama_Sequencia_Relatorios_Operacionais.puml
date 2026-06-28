@@ -1,0 +1,66 @@
+@startuml
+autonumber
+skinparam handwritten false
+skinparam monochrome false
+
+actor "Gestor Operacional" as Gestor
+boundary "RelatorioOperacionalView" as View
+control "RelatorioOperacionalController" as Controller
+database "SIG_GCM_Database" as DB
+
+Gestor -> View : acessarTelaRelatoriosOperacionais()
+activate View
+View -> Controller : validarNivelAcessoOperacional(usuarioLogado)
+activate Controller
+
+Controller -> DB : consultarPerfilUsuario(idUsuario)
+activate DB
+DB --> Controller : perfilVerificado
+deactivate DB
+
+alt Perfil Não Autorizado [RNF202]
+    Controller --> View : erroAcessoNegado
+    View --> Gestor : Exibe "Acesso Negado: Emissão de balanços..."
+else Acesso Autorizado [Gestor Operacional]
+    Controller --> View : liberarFiltrosOperacionais()
+    View --> Gestor : Mostra campos e seletores de agrupamento [RNF301]
+    deactivate Controller
+end
+
+Gestor -> View : definirParametros(Data_Inicio, Data_Fim, Regiao_GCM, Tipo_Agrupamento, Formato_Output)
+Gestor -> View : clicarGerarRelatorio()
+
+View -> Controller : processarDocumentoOperacional(filtros)
+activate Controller
+
+Controller -> Controller : checarConsistenciaDatas(Data_Inicio, Data_Fim)
+alt Janela Temporal Invertida (A1)
+    Controller --> View : erroDatasInvalidas
+    View --> Gestor : Exibe "Erro de entrada: A data inicial..."
+else Filtros Estruturalmente Validados
+    Controller -> DB : extrairDadosConsolidados(filtros)
+    activate DB
+    Note over DB : Executa cruzamento entre\ntb_ocorrencia e tb_livro_bordo [RF701]
+    DB --> Controller : datasetOperacional
+    deactivate DB
+    
+    alt Dataset Vazio (A3 - Sem Dados)
+        Controller --> View : erroSemRegistrosOperacionais
+        View --> Gestor : Exibe "Pesquisa sem resultados: Não há..."
+    else Registros Encontrados com Sucesso
+        Controller -> Controller : renderizarBinarioRelatorio(datasetOperacional, Formato_Output)
+        
+        Controller -> DB : injetarLogConsultaEstatistica(metadados, usuarioLogado)
+        activate DB
+        Note over DB : Trilha imutável de auditoria [RNF205]
+        DB --> Controller : logGravado
+        deactivate DB
+        
+        Controller --> View : baixarArquivoPronto(urlDownload)
+        View --> Gestor : Executa download e apresenta mensagem de sucesso
+    end
+end
+deactivate Controller
+deactivate View
+
+@enduml

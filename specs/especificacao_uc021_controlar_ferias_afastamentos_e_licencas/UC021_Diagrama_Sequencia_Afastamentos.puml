@@ -1,0 +1,70 @@
+@startuml
+autonumber
+skinparam handwritten false
+skinparam monochrome false
+
+actor "Setor de RH" as RH
+boundary "ControleAfastamentoView" as View
+control "AfastamentoController" as Controller
+database "SIG_GCM_Database" as DB
+
+RH -> View : acessarControleAfastamentos(matriculaServidor)
+activate View
+View -> Controller : validarPermissoesEBuscarServidor(matriculaServidor, usuarioLogado)
+activate Controller
+
+Controller -> DB : consultarPerfilEServidor(idUsuario, matriculaServidor)
+activate DB
+DB --> Controller : dadosValidados
+deactivate DB
+
+alt Perfil Incorreto [RNF202]
+    Controller --> View : erroAcessoNegado
+    View --> RH : Exibe "Acesso Negado: Alterações de prontuário..."
+else Acesso Autorizado e Servidor Localizado
+    Controller --> View : mostrarFichaEHistorico(servidor)
+    View --> RH : Renderiza formulário e histórico de períodos
+    deactivate Controller
+end
+
+RH -> View : preencherDados(Tipo_Situacao, Data_Inicio, Data_Fim, Documento_Legal)
+RH -> View : clicarGravarSituaçao()
+
+View -> Controller : processarAfastamento(dadosAfastamento)
+activate Controller
+
+Controller -> Controller : validarFormatosBasicos(dadosAfastamento)
+alt Campos Obrigatórios Vazios ou Datas Invertidas (A1)
+    Controller --> View : falhaFormatoCampos
+    View --> RH : Exibe "Erro de período / Validação Falhou..."
+else Formatos Válidos
+    Controller -> DB : verificarConflitoDePeriodos(dadosAfastamento)
+    activate DB
+    Note over DB : Checa superposição de datas (Overlap) [A3]
+    DB --> Controller : resultadoConflitos
+    deactivate DB
+    
+    alt Conflito Encontrado (A3 - Sobreposição)
+        Controller --> View : erroSobreposicaoDatas
+        View --> RH : Exibe "Operação Cancelada: O período informado..."
+    else Sem Conflitos Cadastrais
+        Controller -> DB : persistirAfastamentoEAtualizarStatus(dadosAfastamento)
+        activate DB
+        Note over DB : Atualiza disponibilidade e\nbloqueia alocação futura [RF602]
+        DB --> Controller : gravacaoConfirmada
+        deactivate DB
+        
+        Controller -> DB : gerarLogAuditoriaFicha(dadosAfastamento, usuarioLogado)
+        activate DB
+        Note over DB : Registro imutável de auditoria [RF704][RNF205]
+        DB --> Controller : logGerado
+        deactivate DB
+        
+        Controller --> View : sucessoOperacao
+        View --> RH : Exibe "Situação funcional cadastrada e considerada nas escalas!"
+    end
+end
+deactivate Controller
+deactivate View
+
+@enduml

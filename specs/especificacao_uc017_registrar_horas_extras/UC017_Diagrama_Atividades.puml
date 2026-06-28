@@ -1,0 +1,47 @@
+@startuml
+skinparam conditionStyle inside
+
+start
+
+:Supervisor Operacional solicita acesso à funcionalidade;
+:Sistema analisa o perfil de acesso do usuário logado;
+
+if (Possui perfil de Supervisor Operacional?) then (Não)
+    :Exibe mensagem: "Acesso Negado: Seu perfil de usuário...";
+    stop
+else (Sim)
+    :Sistema renderiza o formulário de horas extras;
+    :Supervisor preenche os dados e clica em "Salvar Registro";
+    
+    if (Todos os campos obrigatórios estão preenchidos?) then (Não)
+        :Destaca bordas em vermelho;
+        :Exibe mensagem: "Erro de validação: O campo...";
+        stop
+    else (Sim)
+        :Sistema valida a lógica do intervalo de horários;
+        if (Hora_Inicio é igual ou maior que Hora_Fim?) then (Sim)
+            :Exibe mensagem: "Erro na jornada: A hora de início...";
+            stop
+        else (Não)
+            :Consultar banco de dados para regras restritivas;
+            if (Servidor está inativo, de férias ou de licença?) then (Sim)
+                :Exibe mensagem: "Operação Recusada: O servidor...";
+                stop
+            elseif (Existe choque/colisão de horários no banco?) then (Sim)
+                :Exibe mensagem: "Conflito de Escala: O servidor...";
+                stop
+            elseif (Jornada excede 2 horas E campo Justificativa está vazio?) then (Sim)
+                :Exibe mensagem: "Justificativa Necessária: Para registros...";
+                stop
+            else (Não)
+                :Salva o registro com status "Pendente de Validação";
+                :Grava a trilha com os logs detalhados de auditoria;
+                :Exibe mensagem de sucesso na interface;
+                :Limpa os campos do formulário na tela;
+                stop
+            end if
+        end if
+    end if
+end if
+
+@enduml

@@ -1,0 +1,40 @@
+@startuml
+skinparam conditionStyle inside
+
+start
+
+:Administrador do Sistema acessa o painel de configurações avançadas [RF712];
+:Sistema valida token contra a matriz de privilégios de alta gerência (RBAC) [RNF202];
+
+if (Usuário possui perfil de Administrador do Sistema?) then (Não)
+    :Bloqueia a rota de persistência de variáveis globais (A2);
+    :Exibe: "Acesso Negado: A alteração de variáveis...";
+    stop
+else (Sim)
+    :Carrega o histórico de versões vigentes e renderiza o formulário;
+    :Ator insere novas variáveis numéricas e digita o texto de justificativa;
+    
+    if (Campos numéricos válidos e Justificativa_Alteracao preenchida?) then (Não)
+        :Interrompe o fluxo e destaca os campos inconsistentes em vermelho (A1);
+        :Exibe: "Erro de Validação..." ou "Erro de Preenchimento...";
+        stop
+    else (Sim)
+        :Sistema inicia bloco transacional estrito ACID para salvamento [RN003];
+        :Consulta banco para checar a versão atual dos registros;
+        
+        if (Versão da tela é diferente da versão atual no banco?) then (Sim)
+            :Aborta transação por conflito concorrente / Optimistic Locking (A3);
+            :Exibe: "Operação Recusada: Os parâmetros foram modificados...";
+            stop
+        else (Não)
+            :Incrementa sequencial da versão (versao_atual + 1) [RN002];
+            :Persiste novas diretrizes estruturais na tabela 'tb_sys_parameters';
+            :Grava log imutável em JSON B na tabela 'tb_audit_sys_rules' [RNF205];
+            :Limpa o cache interno em memória RAM para aplicação imediata (<100ms);
+            :Exibe mensagem de sucesso com o novo número de versão na tela;
+            stop
+        end if
+    end if
+end if
+
+@enduml

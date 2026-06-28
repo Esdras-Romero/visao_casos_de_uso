@@ -1,0 +1,35 @@
+@startuml
+skinparam conditionStyle inside
+
+start
+
+:Usuário do Sistema acessa a Central de Notificações [RF708];
+:Sistema carrega as mensagens vinculadas à identidade do usuário [RNF202];
+:Apresenta a listagem cronológica e o contador de avisos pendentes;
+
+:Ator seleciona uma mensagem e aciona comando de leitura/exclusão (Acao_Leitura);
+
+if (O ID_Notificacao pertence ao usuário autenticado?) then (Não)
+    :Bloqueia a transação por quebra de segurança e gera log de alerta (A2);
+    :Exibe: "Acesso Negado: Você não possui autorização...";
+    stop
+else (Sim)
+    if (Ação é EXCLUIR/ARQUIVAR e a mensagem é uma Convocação Crítica?) then (Sim)
+        :Impede a destruição ou ocultação do aviso mandatório (A3);
+        :Exibe: "Operação Recusada: Avisos de convocação...";
+        stop
+    else (Não)
+        :Muda o status da mensagem para 'LIDA' no banco de dados [RN009];
+        :Decrementa o contador de alertas pendentes de forma assíncrona;
+        
+        if (A notificação possui categoria URGENTE ou CONVOCAÇÃO?) then (Sim)
+            :Grava log com assinatura eletrônica de ciência na trilha [RNF205];
+        else (Não)
+        endif
+        
+        :Atualiza os elementos gráficos e esmaece a linha na interface;
+        stop
+    end if
+end if
+
+@enduml

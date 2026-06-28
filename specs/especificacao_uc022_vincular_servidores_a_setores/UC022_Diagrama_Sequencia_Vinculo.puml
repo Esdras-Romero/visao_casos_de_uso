@@ -1,0 +1,70 @@
+@startuml
+autonumber
+skinparam handwritten false
+skinparam monochrome false
+
+actor "Administrador Institucional" as Admin
+boundary "VinculoSetorView" as View
+control "OrganizacaoController" as Controller
+database "SIG_GCM_Database" as DB
+
+Admin -> View : acessarTelaVinculacao()
+activate View
+View -> Controller : inicializarComponentesSetor(usuarioLogado)
+activate Controller
+
+Controller -> DB : verificarPermissoesEBuscarListas(idUsuario)
+activate DB
+DB --> Controller : listasEstruturaisEPerfil
+deactivate DB
+
+alt Perfil Insuficiente [RNF202]
+    Controller --> View : erroPermissaoNegada
+    View --> Admin : Exibe "Acesso Negado: A movimentação hierárquica..."
+else Autorizado
+    Controller --> View : renderizarComponentes(servidores, setores)
+    View --> Admin : Apresenta tela de vinculação estrutural [RNF301]
+    deactivate Controller
+end
+
+Admin -> View : selecionarParametros(Matricula, ID_Setor, Data_Vinculo, Tipo_Designacao)
+Admin -> View : clicarConfirmarVinculo()
+
+View -> Controller : registrarVinculoSetorial(dadosVinculo)
+activate Controller
+
+Controller -> Controller : validarCamposPreenchidos(dadosVinculo)
+alt Campos Vazios ou Inválidos (A1)
+    Controller --> View : erroCamposInvalidos
+    View --> Admin : Exibe "Erro de seleção: É mandatório..."
+else Dados Estruturalmente Ok
+    Controller -> DB : validarRegrasDeSetor(dadosVinculo)
+    activate DB
+    Note over DB : Verifica integridade temporal\ne se o setor está ATIVO [A3]
+    DB --> Controller : statusRegrasNegocio
+    deactivate DB
+    
+    alt Setor Inativo ou Data Inválida (A3)
+        Controller --> View : erroRegraViolada(msgJustificativa)
+        View --> Admin : Exibe justificativa exata do impedimento
+    else Regras de Negócio Homologadas
+        Controller -> DB : executarVinculacaoSetor(dadosVinculo)
+        activate DB
+        Note over DB : Atualiza tb_servidor_setor\ne ajusta escopo de permissões
+        DB --> Controller : vinculoConfirmado
+        deactivate DB
+        
+        Controller -> DB : salvarTrilhaAuditoriaCrítica(dadosVinculo, usuarioLogado)
+        activate DB
+        Note over DB : Log de auditoria imutável [RF704][RNF205]
+        DB --> Controller : logGravado
+        deactivate DB
+        
+        Controller --> View : sucessoVinculacao
+        View --> Admin : Exibe "Vínculo registrado com sucesso!"
+    end
+end
+deactivate Controller
+deactivate View
+
+@enduml

@@ -1,0 +1,84 @@
+@startuml
+autonumber
+skinparam handwritten false
+skinparam monochrome false
+
+actor "Administrador do Sistema" as Admin
+boundary "ParametrizarRegrasView" as View
+control "ParametroController" as Controller
+control "RuleEngineConfigService" as Service
+database "SIG_GCM_Database" as DB
+
+Admin -> View : acessarTelaParametrizacao()
+activate View
+View -> Controller : verificarPermissaoParametros(usuarioLogado)
+activate Controller
+
+Controller -> DB : consultarPerfilSysAdmin(idUsuario)
+activate DB
+DB --> Controller : respostaPerfilSysAdmin
+deactivate DB
+
+alt Perfil Incorreto [RNF202]
+    Controller --> View : erroAcessoNegado
+    View --> Admin : Exibe "Acesso Negado: A alteração de variáveis..."
+else Perfil Autorizado [SysAdmin]
+    Controller -> DB : obterUltimaVersaoParametros()
+    activate DB
+    DB --> Controller : payloadParametrosAtuais (V_X)
+    deactivate DB
+    Controller --> View : renderizarFormularioParametros(payloadParametrosAtuais)
+    View --> Admin : Apresenta os campos numéricos, severidades e histórico
+    deactivate Controller
+end
+
+Admin -> View : informarNovosParametros(Limite_Tolerancia_Minutos, Raio_Geofencing_Metros, Severidade_Notificacao_Automatica, Justificativa_Alteracao)
+Admin -> View : clicarSalvarNovasRegras()
+
+View -> Controller : salvarRegrasOperacionais(parametros, versaoBaseVisualizada)
+activate Controller
+
+Controller -> Controller : validarLimitesEPreenchimento(parametros)
+alt Parâmetros Fora dos Limites ou Justificativa Ausente (A1)
+    Controller --> View : erroValidacaoCampos
+    View --> Admin : Exibe "Erro de Validação: O raio..." ou "Erro de Preenchimento..."
+else Dados Estruturalmente Validados
+    Controller -> Service : processarAtualizacaoParametros(parametros, versaoBaseVisualizada)
+    activate Service
+    
+    Service -> DB : verificarVersaoAtualConcorrencia()
+    activate DB
+    DB --> Service : versaoAtualBanco
+    deactivate DB
+    
+    alt Versão Base Divergente [Optimistic Locking] (A3)
+        Service --> Controller : erroConcorrenciaVersionamento
+        Controller --> View : falhaSalvamentoConcorrente
+        View --> Admin : Exibe "Operação Recusada: Os parâmetros foram modificados..."
+    else Versão Consistente com a Memória [RN003]
+        Service -> DB : persistirNovosParametros(parametros)
+        activate DB
+        Note over DB : tb_sys_parameters\nIncrementa versão (V_X+1) [RN002]
+        DB --> Service : confirmacaoEscritaParametros
+        deactivate DB
+        
+        Service -> DB : registrarAuditoriaConfiguracao(parametros, estadoAnterior, usuarioLogado)
+        activate DB
+        Note over DB : Salva em tb_audit_sys_rules\nFormato JSON B [RNF205]
+        DB --> Service : logAuditoriaConfirmado
+        deactivate DB
+        
+        Service -> Service : limparCacheInternoSistema()
+        Note right of Service : Injeta regras no cache RAM\npara latência menor que 100ms
+        
+        Service --> Controller : atualizacaoConcluidaSucesso
+        deactivate Service
+        
+        Controller --> View : sucessoSalvamentoGlobal(novaVersao)
+        View --> Admin : Exibe "Parâmetros operacionais atualizados com sucesso!..."
+    end
+end
+deactivate Controller
+deactivate View
+
+@enduml

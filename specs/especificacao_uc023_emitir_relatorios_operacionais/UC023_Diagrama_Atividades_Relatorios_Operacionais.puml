@@ -1,0 +1,38 @@
+@startuml
+skinparam conditionStyle inside
+
+start
+
+:Gestor Operacional solicita acesso à emissão de relatórios [RF701];
+:Sistema avalia credenciais do operador na matriz de segurança [RNF202];
+
+if (Usuário possui perfil de Gestor Operacional?) then (Não)
+    :Bloqueia interface e exibe: "Acesso Negado: Emissão...";
+    stop
+else (Sim)
+    :Apresenta os seletores de datas, quebras e formato de exportação;
+    :Ator parametriza os filtros e aciona "Gerar Relatório de Execução";
+    
+    if (Data_Inicio configurada posterior à Data_Fim?) then (Sim)
+        :Interrompe o fluxo e sinaliza os campos com erro (A1);
+        :Exibe: "Erro de entrada: A data inicial selecionada...";
+        stop
+    else (Não)
+        :Consulta tabelas de ocorrências e atividades na base unificada;
+        
+        if (Base não possui lançamentos operacionais no período?) then (Sim)
+            :Aborta processamento de exportação do documento (A3);
+            :Exibe: "Pesquisa sem resultados: Não há dados...";
+            stop
+        else (Não)
+            :Consolida indicadores de produtividade e execução do efetivo [RF701];
+            :Gera documento compilado no formato estipulado (PDF/CSV);
+            :Insere registro histórico na trilha protegida de auditoria [RNF205];
+            :Dispara o arquivo gerado para o navegador do usuário;
+            :Apresenta banner visual de operação concluída com êxito;
+            stop
+        end if
+    end if
+end if
+
+@enduml

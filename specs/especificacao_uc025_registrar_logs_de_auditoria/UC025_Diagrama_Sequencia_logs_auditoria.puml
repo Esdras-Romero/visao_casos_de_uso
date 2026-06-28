@@ -1,0 +1,73 @@
+@startuml
+autonumber
+skinparam handwritten false
+skinparam monochrome false
+
+actor "Administrador do Sistema" as Admin
+boundary "RegistrarLogView" as View
+control "AuditoriaController" as Controller
+control "CryptographyComponent" as Crypto
+database "SIG_GCM_Database" as DB
+
+Admin -> View : acessarConsoleAuditoria()
+activate View
+View -> Controller : checarPrivilegiosRoot(usuarioLogado)
+activate Controller
+Controller -> DB : verificarPerfilSysAdmin(idUsuario)
+activate DB
+DB --> Controller : confirmaPerfilSysAdmin
+deactivate DB
+
+alt Perfil Insuficiente [RNF202]
+    Controller --> View : erroAcessoNegado
+    View --> Admin : Exibe "Acesso Negado: A gravação manual..."
+else Autorizado
+    Controller --> View : renderizarFormularioAuditoria()
+    View --> Admin : Apresenta tela de inserção de logs críticos
+    deactivate Controller
+end
+
+Admin -> View : preencherFormulario(Modulo_Alvo, Nivel_Impacto, Descricao_Evento, Payload_Dados)
+Admin -> View : clicarGravarRegistro()
+
+View -> Controller : processarInsercaoLog(dadosLog)
+activate Controller
+
+Controller -> Controller : validarSintaxeJSON(Payload_Dados)
+alt JSON Malformado (A1)
+    Controller --> View : erroJsonInvalido
+    View --> Admin : Exibe "Erro de Validação: O payload de dados..."
+else Validado Sintaticamente
+    Controller -> DB : verificarConsistenciaCronologica(dadosLog)
+    activate DB
+    DB --> Controller : statusCronologia
+    deactivate DB
+    
+    alt Sequenciamento Inconsistente (A3)
+        Controller --> View : erroSequenciamentoTemporal
+        View --> Admin : Exibe "Operação Rejeitada: Violação de diretriz..."
+    else Cronologia Consolidada
+        Controller -> Crypto : gerarAssinaturaSHA256(dadosLog)
+        activate Crypto
+        Crypto --> Controller : hashSHA256Gerado
+        deactivate Crypto
+        
+        Controller -> DB : persistirLogAuditoriaImutavel(dadosLog, hashSHA256Gerado)
+        activate DB
+        Note over DB : Executa INSERT estrito\nProíbe UPDATE/DELETE [RN004]
+        DB --> Controller : transacaoSalvaComSucesso
+        deactivate DB
+        
+        Controller -> DB : registrarAutolocalizacaoLog(usuarioLogado)
+        activate DB
+        DB --> Controller : autoLogGravado
+        deactivate DB
+        
+        Controller --> View : sucessoGravacaoLog
+        View --> Admin : Exibe "Log de auditoria registrado com sucesso!"
+    end
+end
+deactivate Controller
+deactivate View
+
+@enduml

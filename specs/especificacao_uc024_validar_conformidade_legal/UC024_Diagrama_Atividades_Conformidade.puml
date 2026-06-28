@@ -1,0 +1,38 @@
+@startuml
+skinparam conditionStyle inside
+
+start
+
+:Administrador Institucional solicita acesso ao motor de conformidade [RF702];
+:Sistema valida credenciais contra matriz de papéis (RBAC) [RNF202];
+
+if (Usuário possui perfil de Administrador Institucional?) then (Não)
+    :Bloqueia operação e apresenta mensagem de erro (A2);
+    :Exibe: "Acesso Negado: A execução da validação...";
+    stop
+else (Sim)
+    :Apresenta os parâmetros de entrada da rotina automatizada;
+    :Ator define os filtros (Mês/Ano) e clica em "Executar Validação";
+    
+    if (Ano informado é superior ao ano corrente (2026)?) then (Sim)
+        :Sinaliza erro de entrada de dados na interface (A1);
+        :Exibe: "Erro de Parâmetro: O ano de referência...";
+        stop
+    else (Não)
+        :Sistema consome registros de ponto e tabela de regras da corporação;
+        :Engine executa o cruzamento de horários e interstícios [RN001][RN002];
+        
+        if (Foram localizadas quebras de diretrizes graves?) then (Sim)
+            :Cancela a homologação em lote do ponto do período (A3);
+            :Exibe: "Operação Suspensa: Foram identificadas...";
+            stop
+        else (Não)
+            :Atualiza os status de conformidade das jornadas na base;
+            :Grava entrada criptográfica na tabela de logs imutáveis [RNF205];
+            :Renderiza caixa de diálogo informativa de sucesso na tela;
+            stop
+        end if
+    end if
+end if
+
+@enduml

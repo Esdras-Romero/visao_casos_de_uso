@@ -1,0 +1,93 @@
+@startuml
+autonumber
+skinparam handwritten false
+skinparam monochrome false
+
+actor "Supervisor de Plantão" as Supervisor
+boundary "RegistrarRelatorioPlantaoView" as View
+control "PlantaoController" as Controller
+control "ReportConsolidationService" as Service
+database "SIG_GCM_Database" as DB
+
+Supervisor -> View : acessarFechamentoTurno()
+activate View
+View -> Controller : recuperarDadosTurnoAtivo(usuarioLogado)
+activate Controller
+
+Controller -> DB : consultarPlantaoAtivo(idUsuario)
+activate DB
+DB --> Controller : dadosPlantaoPreenchidos (Equipe, Viaturas, Ocorrencias)
+deactivate DB
+
+Controller --> View : renderizarFormularioFechamento(dadosPlantaoPreenchidos)
+View --> Supervisor : Exibe sumário do turno e campos para preenchimento
+deactivate Controller
+
+Supervisor -> View : informarDadosRelatorio(ID_Plantao, Resumo_Operacional, Kms_Rodados_Viatura, Intercorrencia_Efetivo)
+Supervisor -> View : clicarFinalizarEProtocolar()
+
+View -> Controller : protocolarRelatorio(dadosRelatorio, usuarioLogado)
+activate Controller
+
+alt Tentativa de Acesso por Perfil GCM Padrão (A2)
+    Controller -> Controller : verificarPerfilSupervisor(usuarioLogado)
+    Controller --> View : erroAcessoNegado
+    View --> Supervisor : Exibe "Acesso Negado: O registro e encerramento..."
+else Perfil Autorizado [Supervisor_Plantao]
+    Controller -> Controller : validarConsistenciaCampos(Kms_Rodados_Viatura)
+    
+    alt Quilometragem Inconsistente ou <= 0 (A1)
+        Controller --> View : erroQuilometragemInvalida
+        View --> Supervisor : Exibe "Erro de Consistência: A quilometragem informada..."
+    else Campos Estruturalmente Validados
+        Controller -> Service : processarEncerramentoPlantao(dadosRelatorio)
+        activate Service
+        
+        Service -> DB : verificarOcorrenciasPendentes(ID_Plantao)
+        activate DB
+        DB --> Service : qtdOcorrenciasEmAndamento
+        deactivate DB
+        
+        alt Existe Ocorrência Em Atendimento [RN007]
+            Service --> Controller : erroOcorrenciasAbertas
+            Controller --> View : impedimentoOcorrenciasPendentes
+            View --> Supervisor : Exibe aviso de impedimento de fechamento por pendências
+        else Sem Ocorrências Pendentes
+            Service -> DB : verificarStatusAtualPlantao(ID_Plantao)
+            activate DB
+            DB --> Service : statusAtual
+            deactivate DB
+            
+            alt Plantão já se encontra Concluído (A3)
+                Service --> Controller : erroPlantaoJaEncerrado
+                Controller --> View : falhaPlantaoConcluido
+                View --> Supervisor : Exibe "Operação Recusada: Este plantão já foi finalizado..."
+            else Status Valido [EM_ANDAMENTO]
+                Service -> DB : atualizarStatusEGravarRelatorio(dadosRelatorio)
+                activate DB
+                Note over DB : Altera status para 'CONCLUIDO'\nGera protocolo inviolável [RN006]
+                DB --> Service : dadosGravadosComSucesso(Protocolo)
+                deactivate DB
+                
+                Service -> DB : registrarAuditoriaFechamento(Protocolo, usuarioLogado)
+                activate DB
+                Note over DB : Grava em tb_audit_shift_reports [RNF205]
+                DB --> Service : logFechamentoGravado
+                deactivate DB
+                
+                Service -> Service : enviarNotificacaoAssincronaComando(Protocolo)
+                Note right of Service : Dispara push/e-mail para a\nInspetoria Geral em background
+                
+                Service --> Controller : fechamentoConcluido(Protocolo)
+                deactivate Service
+                
+                Controller --> View : confirmarProtocoloInterface(Protocolo)
+                View --> Supervisor : Exibe "Relatório de Plantão protocolado com sucesso!..."
+            end
+        end
+    end
+end
+deactivate Controller
+deactivate View
+
+@enduml

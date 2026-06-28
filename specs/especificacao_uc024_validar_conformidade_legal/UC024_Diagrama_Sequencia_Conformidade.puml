@@ -1,0 +1,78 @@
+@startuml
+autonumber
+skinparam handwritten false
+skinparam monochrome false
+
+actor "Administrador Institucional" as Admin
+boundary "ValidarConformidadeView" as View
+control "ConformidadeController" as Controller
+control "ComplianceEngine" as Engine
+database "SIG_GCM_Database" as DB
+
+Admin -> View : acessarPainelValidação()
+activate View
+View -> Controller : checarAtributosAcesso(usuarioLogado)
+activate Controller
+Controller -> DB : consultarPerfilAdmin(idUsuario)
+activate DB
+DB --> Controller : respostaPerfil
+deactivate DB
+
+alt Perfil Incorreto [RNF202]
+    Controller --> View : erroAcessoNegado
+    View --> Admin : Exibe "Acesso Negado: A execução da validação..."
+else Perfil Autorizado
+    Controller --> View : liberarPainelFiltros()
+    View --> Admin : Renderiza campos e histórico do motor
+    deactivate Controller
+end
+
+Admin -> View : informarParametros(Mes, Ano, GrupoEfetivo, IgnorarAlertas)
+Admin -> View : clicarExecutarValidacao()
+
+View -> Controller : dispararMotorConformidade(Mes, Ano, GrupoEfetivo, IgnorarAlertas)
+activate Controller
+
+Controller -> Controller : checarAnoValido(Ano)
+alt Ano Futuro (A1)
+    Controller --> View : erroAnoInvalido
+    View --> Admin : Exibe "Erro de Parâmetro: O ano de referência..."
+else Periodo Valido
+    Controller -> Engine : executarAuditoriaParametrica(Mes, Ano, GrupoEfetivo)
+    activate Engine
+    
+    Engine -> DB : extrairJornadasERegras(Mes, Ano, GrupoEfetivo)
+    activate DB
+    Note over DB : Cruza tb_jornada_efetiva\ncom RN001, RN002 e RN003
+    DB --> Engine : dadosJornadasERegras
+    deactivate DB
+    
+    Engine -> Engine : processarRegrasCalculo(dadosJornadasERegras)
+    
+    alt Inconsistência Crítica Detectada (A3)
+        Engine --> Controller : quebraDiretrizCritica(detalhesInconsistencia)
+        Controller --> View : erroRegraNegocioViolada
+        View --> Admin : Exibe "Operação Suspensa: Foram identificadas..."
+    else Jornadas Em Conformidade Legal
+        Engine -> DB : persistirNovosStatusEInconsistencias()
+        activate DB
+        DB --> Engine : confirmacaoPersistencia
+        deactivate DB
+        
+        Engine --> Controller : resultadoProcessamentoSucesso
+        deactivate Engine
+        
+        Controller -> DB : gravarLogAuditoriaCritico(dadosLog)
+        activate DB
+        Note over DB : Grava Log Imutável [RNF205]
+        DB --> Controller : logSalvo
+        deactivate DB
+        
+        Controller --> View : sucessoAuditoriaAutomática
+        View --> Admin : Exibe "Validação de conformidade concluída com sucesso!"
+    end
+end
+deactivate Controller
+deactivate View
+
+@enduml

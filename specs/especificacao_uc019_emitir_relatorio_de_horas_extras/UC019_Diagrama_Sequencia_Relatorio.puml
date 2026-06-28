@@ -1,0 +1,65 @@
+@startuml
+autonumber
+skinparam handwritten false
+skinparam monochrome false
+
+actor "Comando" as Ator
+boundary "RelatorioHoraExtraView" as View
+control "RelatorioController" as Controller
+database "SIG_GCM_Database" as DB
+
+Ator -> View : acessarTelaRelatorios()
+activate View
+View -> Controller : verificarPermissaoRelatorio(usuarioLogado)
+activate Controller
+Controller -> DB : consultarPerfilUsuario(idUsuario)
+activate DB
+DB --> Controller : perfilConfirmado
+deactivate DB
+
+alt Perfil Não Autorizado [RNF202]
+    Controller --> View : erroAcessoRelatorio
+    View --> Ator : Exibe "Acesso Negado: Seu perfil..."
+else Perfil Autorizado [Comando]
+    Controller --> View : liberarFiltrosTela
+    View --> Ator : Renderiza campos de busca [RNF301]
+    deactivate Controller
+end
+
+Ator -> View : definirFiltros(Data_Inicio, Data_Fim, Matricula, Formato)
+Ator -> View : clicarGerarRelatorio()
+
+View -> Controller : solicitarDocumentoConsolidado(filtros)
+activate Controller
+
+Controller -> Controller : validarIntervaloDatas(Data_Inicio, Data_Fim)
+alt Datas Inválidas (A1)
+    Controller --> View : erroParametrosData
+    View --> Ator : Exibe "Erro nos parâmetros: A data inicial..."
+else Filtros Válidos
+    Controller -> DB : buscarDadosRelatorio(filtros)
+    activate DB
+    Note over DB : Consolida registros [RF701]\ne status de conformidade [RF702]
+    DB --> Controller : colecaoDadosEncontrados
+    deactivate DB
+    
+    alt Busca Sem Resultados (A3)
+        Controller --> View : erroSemRegistros
+        View --> Ator : Exibe "Pesquisa sem resultados..."
+    else Dados Localizados com Sucesso
+        Controller -> Controller : compilarDocumento(colecaoDadosEncontrados, Formato)
+        
+        Controller -> DB : registrarLogConsulta(metadadosRelatorio)
+        activate DB
+        Note over DB : Log imutável de auditoria [RNF205]
+        DB --> Controller : logGravado
+        deactivate DB
+        
+        Controller --> View : streamArquivoPronto(urlDownload)
+        View --> Ator : Fornece arquivo e exibe mensagem de sucesso
+    end
+end
+deactivate Controller
+deactivate View
+
+@enduml

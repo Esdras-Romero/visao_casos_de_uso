@@ -1,0 +1,39 @@
+@startuml
+skinparam conditionStyle inside
+
+start
+
+:Integrante da Diretoria Operacional solicita acesso ao painel de validação [RF502];
+:Sistema valida se o perfil possui escopo de Diretoria Operacional [RNF202];
+
+if (Usuário pertence à Diretoria Operacional?) then (Não)
+    :Exibe mensagem: "Acesso Negado: Seu perfil de usuário...";
+    stop
+else (Sim)
+    :Sistema carrega e exibe os registros com status "Pendente";
+    :Diretor seleciona um registro, insere a Decisão e o Parecer;
+    :Diretor aciona a ação de confirmação;
+    
+    if (Decisão é igual a Reprovado E Justificativa está vazia?) then (Sim)
+        :Sinaliza erro no campo de texto da interface;
+        :Exibe mensagem: "Erro de validação: O campo Justificativa...";
+        stop
+    else (Não)
+        :Sistema inicia checagem concorrente e orçamentária no banco;
+        if (O registro já foi alterado/processado por outro usuário?) then (Sim)
+            :Exibe mensagem: "Conflito de Concorrência: A hora...";
+            stop
+        elseif (O acumulado financeiro do mês viola a conformidade legal [RF702]?) then (Sim)
+            :Exibe mensagem: "Operação Recusada: Limite orçamentário...";
+            stop
+        else (Não)
+            :Atualiza o status da hora extra para Homologado ou Rejeitado;
+            :Gera log de auditoria operacional para rastreamento crítico [RF704][RNF205];
+            :Exibe notification visual de sucesso;
+            :Remove o registro processado da fila visível;
+            stop
+        end if
+    end if
+end if
+
+@enduml
