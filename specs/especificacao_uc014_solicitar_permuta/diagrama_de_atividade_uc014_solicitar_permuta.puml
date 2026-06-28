@@ -1,0 +1,32 @@
+@startuml
+start
+
+:Servidor Operacional envia formulário de solicitação de permuta;
+
+if (Usuário possui perfil "Servidor Operacional"?) then (Não)
+  :Sistema bloqueia o processamento;
+  :Exibe "MSG-E02: Acesso não autorizado";
+  stop
+else (Sim)
+  :Sistema intercepta os parâmetros informados;
+  if (Campos obrigatórios preenchidos e justificativa válida?) then (Não)
+    :Sistema sinaliza inconsistência nos dados;
+    :Exibe "MSG-E01: Dados inválidos";
+    stop
+  else (Sim)
+    :Consultar banco de dados em busca de conflitos de horários das escalas;
+    if (A permuta gera sobreposição de horários (RN001)?) then (Sim)
+      :Sistema rejeita a inserção provisória;
+      :Exibe "MSG-E03: Conflito de escala gerado";
+      stop
+    else (Não)
+      :Persiste a solicitação na tabela relacional com status 'PENDENTE_APROVACAO';
+      :Grava log imutável de alteração crítica na base de auditoria;
+      :Dispara notificação para a Diretoria/Supervisor Operacional;
+      :Exibe "MSG-001: Solicitação de permuta registrada com sucesso";
+      stop
+    endif
+  endif
+endif
+
+@enduml

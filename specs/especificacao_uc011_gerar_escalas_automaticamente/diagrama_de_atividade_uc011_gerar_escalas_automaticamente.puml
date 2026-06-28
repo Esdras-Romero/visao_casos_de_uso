@@ -1,0 +1,33 @@
+@startuml
+start
+:Diretoria Operacional solicita acesso à ferramenta de geração automática;
+:Sistema valida perfil e permissões de controle de acesso (RN004);
+
+if (Usuário possui perfil Autorizado?) then (Não)
+  :Exibir mensagem: "Acesso Negado: Seu perfil institucional não possui permissão...";
+  stop
+else (Sim)
+  :Apresentar campos de parametrização da escala;
+  :Usuário preenche parâmetros e clica em executar;
+  
+  if (Validação de campos obrigatórios e período futuro?) then (Invalido)
+    :Exibir mensagem: "Operação Inválida: Todos os campos obrigatórios...";
+    stop
+  else (Valido)
+    :Buscar servidores ativos e plano do Cartão Programa no banco de dados;
+    :Executar algoritmo de distribuição automatizada;
+    :Validar conformidade legal e checar conflito de jornadas (RN001);
+    
+    if (Detectada sobreposição ou jornada ilegal?) then (Sim)
+      :Abortar processamento da grade;
+      :Exibir mensagem: "Erro de Consistência: A geração automática foi abortada...";
+      stop
+    else (Não)
+      :Gravar rascunho da nova escala na base de dados relacional;
+      :Registrar logs de auditoria detalhados com metadados da operação (RN005);
+      :Exibir mensagem: "Escala gerada com sucesso!";
+      stop
+    endif
+  endif
+endif
+@enduml

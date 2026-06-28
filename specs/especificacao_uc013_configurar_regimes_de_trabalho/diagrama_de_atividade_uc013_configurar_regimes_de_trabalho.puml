@@ -1,0 +1,31 @@
+@startuml
+start
+
+:Administrador Operacional solicita o salvamento do novo regime de trabalho;
+
+if (Usuário possui perfil "Administrador Operacional"?) then (Não)
+  :Sistema bloqueia a operação;
+  :Exibe mensagem "MSG-E02: Acesso negado";
+  stop
+else (Sim)
+  :Sistema intercepta o formulário preenchido;
+  if (Todos os campos obrigatórios estão preenchidos e descanso >= 11h?) then (Não)
+    :Sistema sinaliza campos inválidos;
+    :Exibe mensagem "MSG-E01: Dados inválidos";
+    stop
+  else (Sim)
+    :Sistema realiza consulta de unicidade no banco de dados;
+    if (O nome digitado para o regime já existe na base?) then (Sim)
+      :Sistema interrompe o processo de gravação;
+      :Exibe mensagem "MSG-E03: Regime já cadastrado";
+      stop
+    else (Não)
+      :Grava o novo registro de regime de trabalho na tabela relacional;
+      :Gera o log de auditoria crítico com o payload enviado em formato JSON;
+      :Exibe mensagem "MSG-001: Regime de trabalho cadastrado com sucesso";
+      stop
+    endif
+  endif
+endif
+
+@enduml

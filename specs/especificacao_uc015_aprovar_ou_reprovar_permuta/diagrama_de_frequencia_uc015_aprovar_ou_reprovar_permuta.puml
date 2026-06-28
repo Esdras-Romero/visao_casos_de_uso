@@ -1,0 +1,67 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Supervisor Operacional" as Supervisor
+box "Camada de Apresentação / Aplicação" #LightBlue
+    boundary "AnalisePermutaView" as View
+    control "PermutaController" as Ctrl
+end box
+
+box "Camada de Domínio / Dados" #LightYellow
+    database "SIG_GCM_DB" as DB
+end box
+
+Supervisor -> View : Seleciona solicitação e envia decisão (id_permuta, acao, justificativa)
+activate View
+
+View -> Ctrl : avaliarPermuta(id_permuta, acao_decisao, justificativa_analise)
+activate Ctrl
+
+Ctrl -> Ctrl : verificarPerfilSupervisor()
+alt Usuário sem perfil de Supervisor [A2]
+    Ctrl --> View : retornarErro(MSG-E02, HTTP 403)
+    View --> Supervisor : Exibe mensagem: "Acesso negado"
+else Perfil Autorizado
+    Ctrl -> Ctrl : validarRegrasFormulario(acao_decisao, justificativa_analise)
+    alt Ação Reprovar sem justificativa preenchida [A1]
+        Ctrl --> View : retornarErro(MSG-E01, HTTP 400)
+        View --> Supervisor : Exibe mensagem: "Justificativa obrigatória"
+    else Formulário Válido
+        Ctrl -> DB : verificarStatusAtual(id_permuta)
+        activate DB
+        DB --> Ctrl : status_atual
+        deactivate DB
+        
+        alt Status diferente de PENDENTE_APROVACAO [A3]
+            Ctrl --> View : retornarErro(MSG-E03, HTTP 409)
+            View --> Supervisor : Exibe mensagem: "Permuta já processada"
+        else Status Válido para Processamento
+            
+            alt Decisão = APROVAR
+                Ctrl -> DB : atualizarEscalasOperacionais(id_permuta)
+                activate DB
+                DB --> Ctrl : escalas_atualizadas_sucesso
+                deactivate DB
+            end
+            
+            Ctrl -> DB : atualizarStatusPermuta(id_permuta, acao_decisao)
+            activate DB
+            DB --> Ctrl : status_salvo
+            deactivate DB
+            
+            Ctrl -> DB : registrarLogAuditoria(dados_auditoria)
+            activate DB
+            DB --> Ctrl : log_gravado
+            deactivate DB
+            
+            Ctrl --> View : retornarSucesso(MSG-001, HTTP 200)
+            View --> Supervisor : Exibe mensagem: "Avaliação processada com sucesso"
+        end
+    end
+end
+
+deactivate Ctrl
+deactivate View
+@enduml

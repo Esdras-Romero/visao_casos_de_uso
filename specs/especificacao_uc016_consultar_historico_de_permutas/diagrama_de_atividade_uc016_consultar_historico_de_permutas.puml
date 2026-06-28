@@ -1,0 +1,30 @@
+@startuml
+start
+
+:Administrador do Sistema solicita filtragem do histórico de permutas;
+
+if (Usuário possui perfil "Administrador do Sistema"?) then (Não)
+  :Módulo de segurança bloqueia o processamento;
+  :Exibe mensagem "MSG-E02: Acesso negado";
+  stop
+else (Sim)
+  :Sistema intercepta os parâmetros temporais da busca;
+  if (data_fim >= data_inicio?) then (Não)
+    :Sistema anula a requisição de busca;
+    :Exibe mensagem "MSG-E01: Intervalo de pesquisa inválido";
+    stop
+  else (Sim)
+    :Executar consulta SELECT na tabela 'tbl_permutas' com os filtros;
+    if (A busca retornou ao menos um registro correspondente?) then (Não)
+      :Limpar a grade de visualização da interface;
+      :Exibe mensagem "MSG-I03: Nenhum registro encontrado";
+      stop
+    else (Sim)
+      :Registrar entrada de log imutável sobre a consulta na 'tbl_log_auditoria';
+      :Renderizar o resultado estruturado em colunas na tela do usuário;
+      stop
+    endif
+  endif
+endif
+
+@enduml

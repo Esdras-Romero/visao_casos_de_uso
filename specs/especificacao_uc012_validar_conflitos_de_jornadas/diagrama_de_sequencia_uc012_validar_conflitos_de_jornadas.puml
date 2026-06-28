@@ -1,0 +1,50 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Administrador Operacional" as Admin
+box "Camada de Apresentação / Aplicação" #LightBlue
+    boundary "VisualizacaoEscalaView" as View
+    control "ValidadorJornadaController" as Ctrl
+end box
+
+box "Camada de Domínio / Dados" #LightYellow
+    database "SIG_GCM_DB" as DB
+end box
+
+Admin -> View : Dispara "Salvar/Validar Escala"
+activate View
+
+View -> Ctrl : validarConflitos(id_escala, dados_jornada)
+activate Ctrl
+
+Ctrl -> DB : buscarEscalasEConflitos(dados_jornada)
+activate DB
+DB --> Ctrl : lista_de_jornadas_conflitantes
+deactivate DB
+
+alt Caso exista sobreposição (A3)
+    Ctrl --> View : retornarErroConflito(MSG-E03)
+    View --> Admin : Exibe Modal: GCM já alocado em outro posto
+else Caso ocorra quebra de interstício mínimo (A4)
+    Ctrl --> View : retornarErroIntersticio(MSG-E04)
+    View --> Admin : Exibe Alerta: Interstício menor que 11h
+else Caso os dados estejam limpos e válidos
+    Ctrl -> DB : salvarStatusEscala(id_escala, "Validada")
+    activate DB
+    DB --> Ctrl : confirmacao_gravacao
+    deactivate DB
+    
+    Ctrl -> DB : registrarLogAuditoria(dados_auditoria)
+    activate DB
+    DB --> Ctrl : log_gravado
+    deactivate DB
+    
+    Ctrl --> View : retornarSucesso(MSG-001)
+    View --> Admin : Exibe Mensagem de Sucesso (Escala Validada)
+end
+
+deactivate Ctrl
+deactivate View
+@enduml
