@@ -1,0 +1,54 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Administrador do Sistema" as Admin
+box "Camada de Apresentação / Aplicação" #LightBlue
+    boundary "HistoricoPermutasView" as View
+    control "AuditoriaController" as Ctrl
+end box
+
+box "Camada de Domínio / Dados" #LightYellow
+    database "SIG_GCM_DB" as DB
+end box
+
+Admin -> View : Acessa interface de histórico e define filtros
+activate View
+
+View -> Ctrl : consultarHistorial(data_inicio, data_fim, matricula, status)
+activate Ctrl
+
+Ctrl -> Ctrl : verificarPerfilAcesso()
+alt Usuário sem perfil administrativo [A2]
+    Ctrl --> View : retornarErro(MSG-E02, HTTP 403)
+    View --> Admin : Exibe mensagem: "Acesso negado"
+else Perfil Autorizado
+    Ctrl -> Ctrl : validarIntervaloDatas(data_inicio, data_fim)
+    alt Data fim menor que data início [A1]
+        Ctrl --> View : retornarErro(MSG-E01, HTTP 400)
+        View --> Admin : Exibe mensagem: "Intervalo de pesquisa inválido"
+    else Filtros Válidos
+        Ctrl -> DB : pesquisarPermutas(filtros)
+        activate DB
+        DB --> Ctrl : lista_de_registros
+        deactivate DB
+        
+        alt Lista Vazia [A3]
+            Ctrl --> View : retornarInformacao(MSG-I03, lista_vazia)
+            View --> Admin : Exibe painel limpo: "Nenhum registro encontrado"
+        else Registros Encontrados
+            Ctrl -> DB : registrarLogAuditoria(dados_consulta)
+            activate DB
+            DB --> Ctrl : log_salvo
+            deactivate DB
+            
+            Ctrl --> View : retornarDadosGrid(lista_de_registros, HTTP 200)
+            View --> Admin : Renderiza a listagem com o histórico na tela
+        end
+    end
+end
+
+deactivate Ctrl
+deactivate View
+@enduml

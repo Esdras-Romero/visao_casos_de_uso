@@ -1,0 +1,36 @@
+@startuml
+start
+
+:Supervisor Operacional submete a decisão da permuta na plataforma;
+
+if (Usuário possui perfil "Supervisor Operacional"?) then (Não)
+  :Sistema intercepta e rejeita a operação;
+  :Exibe mensagem "MSG-E02: Acesso negado";
+  stop
+else (Sim)
+  if (Ação escolhida é REPROVAR e justificativa está vazia?) then (Sim)
+    :Sistema bloqueia o salvamento;
+    :Exibe mensagem "MSG-E01: Justificativa obrigatória";
+    stop
+  else (Não)
+    :Consultar status atual da permuta no Banco de Dados;
+    if (Status atual da permuta é 'PENDENTE_APROVACAO'?) then (Não)
+      :Sistema previne concorrência e anula a operação;
+      :Exibe mensagem "MSG-E03: Permuta já processada";
+      stop
+    else (Sim)
+      if (Decisão selecionada foi 'APROVAR'?) then (Sim)
+        :Atualizar os titulares dos plantões correspondentes na tabela de escalas;
+        :Mudar status da permuta para 'APROVADO';
+      else (Não)
+        :Mudar status da permuta para 'REPROVADO' com a justificativa gravada;
+      endif
+      :Grava log de auditoria síncrono e imutável;
+      :Dispara notificações automáticas para os GCMs envolvidos;
+      :Exibe mensagem "MSG-001: Avaliação processada com sucesso";
+      stop
+    endif
+  endif
+endif
+
+@enduml

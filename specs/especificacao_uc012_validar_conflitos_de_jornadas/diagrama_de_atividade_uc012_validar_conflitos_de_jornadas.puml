@@ -1,0 +1,37 @@
+@startuml
+start
+
+:Administrador Operacional solicita a validação da jornada da escala;
+
+if (Usuário possui perfil "Administrador Operacional"?) then (Não)
+  :Sistema bloqueia o processamento;
+  :Exibe "MSG-E02: Acesso negado";
+  stop
+else (Sim)
+  :Sistema analisa os campos cronológicos enviados;
+  if (data_fim_jornada > data_inicio_jornada?) then (Não)
+    :Exibe "MSG-E01: Data final inválida";
+    stop
+  else (Sim)
+    :Buscar registros de escalas concorrentes no Banco de Dados;
+    
+    if (Detectada sobreposição de horários para o mesmo GCM?) then (Sim)
+      :Bloqueia gravação;
+      :Exibe "MSG-E03: Violação de Regra Operacional (Sobreposição)";
+      stop
+    else (Não)
+      if (Intervalo entre jornadas é inferior a 11 horas?) then (Sim)
+        :Bloqueia gravação;
+        :Exibe "MSG-E04: Alerta Legal (Interstício Violado)";
+        stop
+      else (Não)
+        :Persiste escala com status "Validada" no Banco de Dados;
+        :Grava log de auditoria imutável na tbl_log_auditoria;
+        :Exibe "MSG-001: Validação de jornada concluída com sucesso";
+        stop
+      endif
+    endif
+  endif
+endif
+
+@enduml

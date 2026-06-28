@@ -1,0 +1,59 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Servidor Operacional" as Servidor
+box "Camada de Apresentação / Aplicação" #LightBlue
+    boundary "PermutaView" as View
+    control "PermutaController" as Ctrl
+end box
+
+box "Camada de Domínio / Dados" #LightYellow
+    database "SIG_GCM_DB" as DB
+end box
+
+Servidor -> View : Solicita tela de permuta e preenche dados
+activate View
+
+View -> Ctrl : criarSolicitacaoPermuta(id_escala_origem, id_servidor_substituto, id_escala_destino, justificativa)
+activate Ctrl
+
+Ctrl -> Ctrl : validarPerfilAcesso()
+alt Usuário sem perfil funcional adequado [A2]
+    Ctrl --> View : retornarErro(MSG-E02, HTTP 403)
+    View --> Servidor : Exibe mensagem: "Acesso não autorizado"
+else Usuário Autorizado
+    Ctrl -> Ctrl : verificarCamposObrigatorios()
+    alt Campos nulos ou inválidos [A1]
+        Ctrl --> View : retornarErro(MSG-E01, HTTP 400)
+        View --> Servidor : Exibe mensagem: "Dados inválidos"
+    else Validação de Dados Sucesso
+        Ctrl -> DB : verificarConflitosEscala(id_escala_origem, id_escala_destino)
+        activate DB
+        DB --> Ctrl : possui_conflito
+        deactivate DB
+        
+        alt Conflito cronológico ou violação encontrada [A3]
+            Ctrl --> View : retornarErro(MSG-E03, HTTP 409)
+            View --> Servidor : Exibe mensagem: "Conflito de escala gerado"
+        else Escalas sem conflitos
+            Ctrl -> DB : insertPermuta(dadosPermuta, status="PENDENTE_APROVACAO")
+            activate DB
+            DB --> Ctrl : confirmacao_salvamento
+            deactivate DB
+            
+            Ctrl -> DB : registrarLogAuditoria(dados_auditoria)
+            activate DB
+            DB --> Ctrl : log_gravado
+            deactivate DB
+            
+            Ctrl --> View : retornarSucesso(MSG-001, HTTP 201)
+            View --> Servidor : Exibe mensagem: "Solicitação registrada com sucesso"
+        end
+    end
+end
+
+deactivate Ctrl
+deactivate View
+@enduml

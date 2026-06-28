@@ -40,12 +40,12 @@ Administrador Operacional
 - MENSAGEM EXATA: "Operação Cancelada: Não é permitido inativar ou excluir escalas cujo período de plantão já tenha sido iniciado ou concluído."
 
 ## Dicionário de Dados da Tela
-Nome do Campo | Tipo de Dado | Obrigatoriedade |Validação/Regra de Negócio
-ID da Escala | Numérico (Long) | Sim | Identificador único da escala no sistema. Exibido em modo somente leitura.
-Servidor Alocado | Texto | Sim | Nome completo do guarda municipal escalado. Exibido em modo somente leitura.
-Data e Horário | Texto | Sim | Período cronológico reservado para o plantão. Exibido em modo somente leitura.
-Motivo da Inativação | Alfanumérico (Dropdown) | Sim | Opções: "Ajuste de Efetivo", "Cancelamento de Evento", "Permuta Deferida", "Erro de Lançamento".
-Justificativa Detalhada | Texto (entre 15 e 500 caracteres) | Sim | Campo de texto livre. Deve conter a justificativa formal para fins de auditoria regula
+- Nome do Campo | Tipo de Dado | Obrigatoriedade |Validação/Regra de Negócio
+- ID da Escala | Numérico (Long) | Sim | Identificador único da escala no sistema. Exibido em modo somente leitura.
+- Servidor Alocado | Texto | Sim | Nome completo do guarda municipal escalado. Exibido em modo somente leitura.
+- Data e Horário | Texto | Sim | Período cronológico reservado para o plantão. Exibido em modo somente leitura.
+- Motivo da Inativação | Alfanumérico (Dropdown) | Sim | Opções: "Ajuste de Efetivo", "Cancelamento de Evento", "Permuta Deferida", "Erro de Lançamento".
+- Justificativa Detalhada | Texto (entre 15 e 500 caracteres) | Sim | Campo de texto livre. Deve conter a justificativa formal para fins de auditoria regula
 
 ## Regras de negócio relacionadas
 - RN001 / RN002: A operação é restrita ao perfil de Administrador Operacional, garantindo o isolamento de funções conforme o setor institucional da Guarda Civil Municipal.

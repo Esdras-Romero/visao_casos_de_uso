@@ -1,0 +1,67 @@
+@startuml
+autonumber
+skinparam boxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Diretoria Operacional" as Ator
+boundary "TelaGerarEscalaView" as Tela
+control "EscalaController" as Ctrl
+control "AlgoritmoEscalaService" as Engine
+database "SIG_GCM_DB" as DB
+
+Ator -> Tela : acessarTelaGeracao()
+activate Tela
+Tela -> Ctrl : verificarPermissao(usuario)
+activate Ctrl
+Ctrl --> Tela : permissaoConfirmada
+deactivate Ctrl
+Tela --> Ator : renderizaFormularioParametros()
+deactivate Tela
+
+Ator -> Tela : preencherParametros(mesAno, regime, setor, cartaoProg)
+activate Tela
+Tela -> Ator : habilitarBotaoExecutar()
+deactivate Tela
+
+Ator -> Tela : clicarExecutarGeracao()
+activate Tela
+Tela -> Ctrl : processarGeracaoAutomatica(dadosParam)
+activate Ctrl
+
+Ctrl -> DB : buscarServidoresAtivosEDisponiveis(setor)
+activate DB
+DB --> Ctrl : listaServidores
+deactivate DB
+
+Ctrl -> DB : buscarDiretrizesCartaoPrograma(cartaoProg)
+activate DB
+DB --> Ctrl : dadosCartaoPrograma
+deactivate DB
+
+Ctrl -> Engine : calcularDistribuicao(listaServidores, regime, dadosCartaoPrograma)
+activate Engine
+
+alt Falha: Conflito de Jornada detectado (Violacao RN001)
+    Engine --> Ctrl : erroConflitoJornada
+    Ctrl --> Tela : exibirErro("Erro de Consistência: ...")
+else Sucesso: Grade Gerada Valida
+    Engine --> Ctrl : gradeEscalaCalculada
+    deactivate Engine
+    
+    Ctrl -> DB : salvarRascunhoEscala(gradeEscalaCalculada)
+    activate DB
+    DB --> Ctrl : rascunhoSalvoOK
+    deactivate DB
+    
+    Ctrl -> DB : registrarLogAuditoria(dadosLog)
+    activate DB
+    DB --> Ctrl : logGravado
+    deactivate DB
+    
+    Ctrl --> Tela : exibirSucesso("Escala gerada com sucesso!")
+end
+
+Tela --> Ator : feedbackResultadoOperacao()
+deactivate Ctrl
+deactivate Tela
+@enduml

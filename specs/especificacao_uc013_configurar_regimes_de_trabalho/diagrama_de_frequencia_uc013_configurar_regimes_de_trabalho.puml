@@ -1,0 +1,57 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+skinparam ParticipantPadding 12
+
+actor "Administrador Operacional" as Admin
+box "Camada de Apresentação / Aplicação" #LightBlue
+    boundary "ConfiguracaoRegimeView" as View
+    control "RegimeTrabalhoController" as Ctrl
+end box
+
+box "Camada de Domínio / Dados" #LightYellow
+    database "SIG_GCM_DB" as DB
+end box
+
+Admin -> View : Acessa interface de configuração e preenche dados
+activate View
+
+View -> Ctrl : salvarRegimeTrabalho(dadosRegime)
+activate Ctrl
+
+Ctrl -> Ctrl : validarPerfilAcesso()
+alt Usuário sem permissão [A2]
+    Ctrl --> View : retornarErro(MSG-E02, HTTP 403)
+    View --> Admin : Exibe mensagem: "Acesso negado"
+else Perfil Válido
+    Ctrl -> Ctrl : validarRegrasParametros(horas_descanso, nome_regime)
+    
+    alt Campos vazios ou descanso < 11h [A1]
+        Ctrl --> View : retornarErro(MSG-E01, HTTP 400)
+        View --> Admin : Exibe mensagem: "Dados inválidos"
+    else Nome do regime já cadastrado [A3]
+        Ctrl -> DB : verificarUnicidadeNome(nome_regime)
+        activate DB
+        DB --> Ctrl : nome_ja_existe
+        deactivate DB
+        Ctrl --> View : retornarErro(MSG-E03, HTTP 409)
+        View --> Admin : Exibe mensagem: "Regime já cadastrado"
+    else Parâmetros em conformidade técnica e legal
+        Ctrl -> DB : insertRegimeTrabalho(dadosRegime)
+        activate DB
+        DB --> Ctrl : confirmacao_salvamento
+        deactivate DB
+        
+        Ctrl -> DB : registrarLogAuditoria(dados_auditoria)
+        activate DB
+        DB --> Ctrl : log_gravado
+        deactivate DB
+        
+        Ctrl --> View : retornarSucesso(MSG-001, HTTP 201)
+        View --> Admin : Exibe mensagem: "Regime cadastrado com sucesso"
+    end
+end
+
+deactivate Ctrl
+deactivate View
+@enduml
