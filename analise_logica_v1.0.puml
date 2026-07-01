@@ -1,0 +1,81 @@
+@startuml
+!theme crt-amber
+skinparam handwritten false
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+
+title Diagrama de Classes Geral - Módulo de Infraestrutura e Operações (SIG-GCM)
+
+class Usuario {
+    - idUsuario: int
+    - matricula: String
+    - nome: String
+    - perfil: String
+    - tokenAutenticacao: String
+    + verificarPrivilegios(idUsuario: int, escopoExigido: String): boolean
+}
+
+class PainelTelemetria {
+    - janelaTempo: String
+    - metricaAlvo: String
+    - frequenciaRefresh: int
+    - statusConexao: String
+    + iniciarFluxoTelemetria(janela: String, metrica: String, refresh: int): void
+    - validarFrequenciaRefresh(refresh: int): boolean
+    - renderizarGaugesEDesempenho(): void
+}
+
+class ParametroSistema {
+    - versaoAtual: int
+    - limiteToleranciaMinutos: int
+    - raioGeofencingMetros: int
+    - severidadeNotificacao: String
+    - dataUltimaAlteracao: DateTime
+    + salvarRegrasOperacionais(limite: int, raio: int, severidade: String, justificativa: String): boolean
+    - validarLimitesOperacionais(): boolean
+    - limparCacheMemoriaRAM(): void
+}
+
+class Plantao {
+    - idPlantao: int
+    - dataInicio: DateTime
+    - dataFim: DateTime
+    - statusTurno: String
+    - guardasEscalados: List<String>
+    - viaturasAlocadas: List<String>
+    + registrarRelatorioPlantao(resumo: String, kms: int, intercorrencia: boolean): String
+    - verificarOcorrenciasPendentes(): boolean
+}
+
+class RelatorioPlantao {
+    - numeroProtocolo: String
+    - resumoOperacional: String
+    - kmsRodadosViatura: int
+    - intercorrenciaEfetivo: boolean
+    - timestampFechamento: DateTime
+    + gerarProtocoloInviolavel(): String
+    + exportarDocumentoPDF(): byte[]
+}
+
+class LogAuditoria {
+    - idLog: int
+    - timestampUTC: DateTime
+    - tipoOperacao: String
+    - usuarioAutor: String
+    - dadosAnterioresJSON: String
+    - dadosNovosJSON: String
+    - justificativaTexto: String
+    + persistirRegistroImutavel(): boolean
+}
+
+' Relacionamentos da Visão Lógica
+Usuario "1" --> "0..*" PainelTelemetria : "avalia e monitora" >
+Usuario "1" --> "0..*" ParametroSistema : "configura e versiona" >
+Usuario "1" --> "0..*" Plantao : "supervisiona e encerra" >
+
+Plantao "1" *-- "0..1" RelatorioPlantao : "possui (composição)" >
+
+PainelTelemetria ..> LogAuditoria : "registra início/fim" >
+ParametroSistema ..> LogAuditoria : "audita alterações" >
+Plantao ..> LogAuditoria : "protocolar gera log" >
+@enduml
