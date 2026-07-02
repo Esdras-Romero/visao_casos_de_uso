@@ -1,0 +1,323 @@
+@startuml
+skinparam handwritten false
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+
+title Diagrama de Classes Geral - Evolução: UC022 + Contexto Acumulado Completo (SIG-GCM)
+
+class ServidorCorporacao {
+    - matricula: String
+    - nome: String
+    - cpf: String
+    - unidade: String
+    - situacaoFuncional: String
+    - dataAdmissao: Date
+    + consultarPorMatricula(matricula: String): ServidorCorporacao
+    + cadastrarServidor(matricula: String, nome: String, cpf: String, unidade: String, admissao: Date): boolean
+    + atualizarSituacaoFuncional(novaSituacao: String): boolean
+    - validarCPFMatematico(cpf: String): boolean
+    - validarCronologiaAdmissao(admissao: Date): boolean
+    - verificarUnicidadeChaves(matricula: String, cpf: String): boolean
+}
+
+class HistoricoAfastamento {
+    - idAfastamento: int
+    - matriculaServidor: String
+    - tipoAfastamento: String
+    - dataInicio: Date
+    - dataFim: Date
+    - motivoTexto: String
+    - timestampRegistro: DateTime
+    + registrarAfastamento(matricula: String, tipo: String, inicio: Date, fim: Date, motivo: String): boolean
+    + consultarHistoricoPorServidor(matricula: String): List<HistoricoAfastamento>
+    - validarIntervaloDatas(inicio: Date, fim: Date): boolean
+    - verificarSobreposicaoAfastamento(matricula: String, inicio: Date, fim: Date): boolean
+}
+
+class Setor {
+    - idSetor: int
+    - nomeSetor: String
+    - siglaSetor: String
+    - statusSetor: String
+    + carregarSetoresAtivos(): List<Setor>
+    + verificarStatusAtivo(idSetor: int): boolean
+    + alterarStatusSetor(idSetor: int, novoStatus: String): boolean
+}
+
+class VinculoSetor {
+    - idVinculo: int
+    - matriculaServidor: String
+    - idSetor: int
+    - dataVinculo: Date
+    - timestampVinculo: DateTime
+    + registrarVinculo(matricula: String, idSetor: int, dataVinculo: Date): boolean
+    - validarCronologiaVinculo(matricula: String, dataVinculo: Date): boolean
+}
+
+class Usuario {
+    - idUsuario: int
+    - matricula: String
+    - nome: String
+    - cpf: String
+    - unidade: String
+    - login: String
+    - senhaHash: String
+    - emailInstitucional: String
+    - statusUsuario: String
+    - observacoes: String
+    + autenticarCredenciais(login: String, senha: String): boolean
+    + verificarPrivilegios(idUsuario: int, escopoExigido: String): boolean
+    + solicitarRecuperacaoSenha(email: String): boolean
+    + cadastrarNovoUsuario(matricula: String, login: String, senha: String, idPerfil: int): boolean
+    + atualizarDadosUsuario(idUsuario: int, nome: String, email: String, statusAtivo: boolean): boolean
+    + alterarStatusUsuario(idUsuarioAlvo: int, novoStatus: String, motivo: String, justificativa: String): boolean
+    + sincronizarPrivilegiosTerritoriais(matricula: String, idSetor: int): boolean
+    - validarFormatoEmail(email: String): boolean
+    - verificarDominioInstitucional(email: String): boolean
+    - validarPoliticaSenha(senha: String): boolean
+    - verificarUnicidadeCPF(cpf: String): boolean
+    - verificarUnicidadeLogin(login: String): boolean
+    - verificarEscalasPendentes(idUsuario: int): boolean
+    - validarJustificativa(justificativa: String): boolean
+}
+
+class EscalaOperacional {
+    - idEscala: int
+    - dataEscala: Date
+    - horaInicio: DateTime
+    - horaFim: DateTime
+    - postoTrabalho: String
+    - statusEscala: String
+    + verificarEscalasFuturasPorUsuario(idUsuario: int): boolean
+    + cadastrarEscala(idUsuario: int, inicio: DateTime, fim: DateTime, posto: String): boolean
+    + atualizarEscala(idEscala: int, idUsuario: int, inicio: DateTime, fim: DateTime, posto: String): boolean
+    + removerEscalaLogica(idEscala: int, motivo: String, justificativa: String): boolean
+    + gerarEscalaAutomatica(dataInicio: Date, dataFim: Date, idCartaoPrograma: int): boolean
+    + validarJornadaEscala(idEscala: int): boolean
+    - validarConsistenciaHorarios(inicio: DateTime, fim: DateTime): boolean
+    - verificarSobreposicaoHorarios(idUsuario: int, inicio: DateTime, fim: DateTime): boolean
+    - verificarIntersticioLegal(idUsuario: int, inicio: DateTime): boolean
+    - validarJustificativaExclusao(justificativa: String): boolean
+    - verificarStatusPlantaoAssociado(idEscala: int): boolean
+    - buscarServidoresAtivos(): List<Usuario>
+    - executarAlgoritmoDistribuicao(servidores: List<Usuario>, plano: CartaoPrograma): boolean
+    - validarConformidadeEConflitoJornada(idUsuario: int, inicio: DateTime, fim: DateTime): boolean
+}
+
+class RegistroHoraExtra {
+    - idHoraExtra: int
+    - idUsuarioServidor: int
+    - idSupervisorAutor: int
+    - idDiretorHomologador: int
+    - dataRegistro: Date
+    - horaInicio: DateTime
+    - horaFim: DateTime
+    - justificativaTexto: String
+    - parecerDiretoria: String
+    - statusRegistro: String
+    - dataHomologacao: DateTime
+    + lancarHoraExtra(idServidor: int, idSupervisor: int, inicio: DateTime, fim: DateTime, justificativa: String): boolean
+    + homologarHoraExtra(idDiretor: int, aprovado: boolean, parecer: String): boolean
+    + listarPendentes(): List<RegistroHoraExtra>
+    - validarCamposObrigatorios(): boolean
+    - validarIntervaloHorarios(inicio: DateTime, fim: DateTime): boolean
+    - verificarSituacaoFuncional(idServidor: int): boolean
+    - verificarColisaoHorarios(idServidor: int, inicio: DateTime, fim: DateTime): boolean
+    - validarLimiteJustificativa(inicio: DateTime, fim: DateTime, justificativa: String): boolean
+    - verificarConconrrenciaRegistro(): boolean
+    - verificarLimiteOrcamentarioMensal(idServidor: int): boolean
+}
+
+class RelatorioHoraExtra {
+    - idRelatorio: int
+    - timestampGeracao: DateTime
+    - dataInicioFiltro: Date
+    - dataFimFiltro: Date
+    - matriculaFiltro: String
+    - formatoExportacao: String
+    + gerarRelatorioConsolidado(idComando: int, inicio: Date, fim: Date, matricula: String, formato: String): byte[]
+    - validarIntervaloDatas(inicio: Date, fim: Date): boolean
+    - compilarIndicadoresDotacao(inicio: Date, fim: Date, matricula: String): List<RegistroHoraExtra>
+    - exportarBinario(formato: String): byte[]
+}
+
+class CartaoPrograma {
+    - idCartaoPrograma: int
+    - nomePrograma: String
+    - descricaoRegras: String
+    - vigenciaInicio: Date
+    - vigenciaFim: Date
+    - ativo: boolean
+    + carregarPlanoVigente(): CartaoPrograma
+    + salvarPlanoRegras(nome: String, regras: String): boolean
+}
+
+class RegimeTrabalho {
+    - idRegime: int
+    - nomeRegime: String
+    - horasDescansoRegulamentar: int
+    - descricaoParametros: String
+    - ativo: boolean
+    + cadastrarRegimeTrabalho(nome: String, descanso: int, descricao: String): boolean
+    - validarJanelaDescanso(descanso: int): boolean
+    - verificarUnicidadeNome(nome: String): boolean
+}
+
+class SolicitacaoPermuta {
+    - idPermuta: int
+    - idUsuarioSolicitante: int
+    - idUsuarioSubstituto: int
+    - idEscalaOrigem: int
+    - justificativaTexto: String
+    - statusPermuta: String
+    - dataSolicitacao: DateTime
+    - justificativaAvaliacao: String
+    + registrarSolicitacao(idSolicitante: int, idSubstituto: int, idEscala: int, justificativa: String): boolean
+    + avaliarPermuta(idSupervisor: int, aprovado: boolean, justificativa: String): boolean
+    + filtrarHistoricoPermutas(dataInicio: Date, dataFim: Date): List<SolicitacaoPermuta>
+    - validarCamposObrigatorios(): boolean
+    - verificarSobreposicaoHorarios(idUsuario: int, idEscala: int): boolean
+    - verificarStatusPendente(): boolean
+    - validarIntervaloDatas(inicio: Date, fim: Date): boolean
+}
+
+class TokenRecuperacao {
+    - idToken: int
+    - hashToken: String
+    - dataCriacao: DateTime
+    - dataExpiracao: DateTime
+    - usado: boolean
+    + gerarTokenSeguro(idUsuario: int): String
+    + validarToken(hash: String): boolean
+}
+
+class PerfilInstitucional {
+    - idPerfil: int
+    - nomePerfil: String
+    - permissoesAcesso: List<String>
+    + carregarPermissoes(): List<String>
+    + salvarPerfil(nome: String, permissoes: List<String>): boolean
+    - verificarDuplicidade(nome: String): boolean
+    - validarAssociacaoPermissoes(permissoes: List<String>): boolean
+}
+
+class SessaoUsuario {
+    - idSessao: String
+    - tokenJWT: String
+    - dataHoraCriacao: DateTime
+    - dataHoraExpiracao: DateTime
+    - ipOrigem: String
+    - ambienteAcesso: String
+    - duracaoSegundos: int
+    + criarSessao(idUsuario: int, ip: String, ambiente: String): boolean
+    + registrarLogout(): boolean
+    + invalidarSessoesAtivas(idUsuario: int): boolean
+    - calcularDuracaoSessao(): int
+}
+
+class ServicoEmail {
+    + enviarEmailRecuperacao(emailDestino: String, token: String): boolean
+}
+
+class PainelTelemetria {
+    - janelaTempo: String
+    - metricaAlvo: String
+    - frequenciaRefresh: int
+    - statusConexao: String
+    + iniciarFluxoTelemetria(janela: String, metrica: String, refresh: int): void
+    - validarFrequenciaRefresh(refresh: int): boolean
+    - renderizarGaugesEDesempenho(): void
+}
+
+class ParametroSistema {
+    - versaoAtual: int
+    - limiteToleranciaMinutos: int
+    - raioGeofencingMetros: int
+    - severidadeNotificacao: String
+    - dataUltimaAlteracao: DateTime
+    + salvarRegrasOperacionais(limite: int, raio: int, severidade: String, justificativa: String): boolean
+    - validarLimitesOperacionais(): boolean
+    - limparCacheMemoriaRAM(): void
+}
+
+class Plantao {
+    - idPlantao: int
+    - dataInicio: DateTime
+    - dataFim: DateTime
+    - statusTurno: String
+    - guardasEscalados: List<String>
+    - viaturasAlocadas: List<String>
+    + registrarRelatorioPlantao(resumo: String, kms: int, intercorrencia: boolean): String
+    - verificarOcorrenciasPendentes(): boolean
+}
+
+class RelatorioPlantao {
+    - numeroProtocolo: String
+    - resumoOperacional: String
+    - kmsRodadosViatura: int
+    - intercorrenciaEfetivo: boolean
+    - timestampFechamento: DateTime
+    + gerarProtocoloInviolavel(): String
+    + exportarDocumentoPDF(): byte[]
+}
+
+class LogAuditoria {
+    - idLog: int
+    - timestampUTC: DateTime
+    - tipoOperacao: String
+    - usuarioAutor: String
+    - dadosAnterioresJSON: String
+    - dadosNovosJSON: String
+    - justificativaTexto: String
+    + persistirRegistroImutavel(): boolean
+}
+
+' Relacionamentos da Visão Lógica Global
+Usuario "1" o-- "1" PerfilInstitucional : "possui" >
+Usuario "1" -- "0..*" SessaoUsuario : "estabelece" >
+Usuario "1" -- "0..*" TokenRecuperacao : "solicita" >
+Usuario "0..1" --> "1" ServidorCorporacao : "vinculado a" >
+Usuario "1" -- "0..*" EscalaOperacional : "está alocado em" >
+Usuario "1" -- "0..*" SolicitacaoPermuta : "decide, propõe, pesquisa ou substitui em" >
+Usuario "1" -- "0..*" RegistroHoraExtra : "gerencia, registra ou homologa apontamentos em" >
+Usuario "1" -- "0..*" RelatorioHoraExtra : "solicita filtros e analisa" >
+
+ServidorCorporacao "1" *-- "0..*" HistoricoAfastamento : "possui registros de" >
+ServidorCorporacao "1" *-- "0..*" VinculoSetor : "movimentado via" >
+Setor "1" -- "0..*" VinculoSetor : "recebe alocação de" >
+
+Plantao "1" *-- "0..1" RelatorioPlantao : "possui (composição)" >
+EscalaOperacional "1" -- "1..*" Plantao : "rege a execução do" >
+EscalaOperacional "0..*" -- "0..1" CartaoPrograma : "segue as diretrizes de" >
+EscalaOperacional "1" -- "0..*" SolicitacaoPermuta : "é objeto de modificação em" >
+CartaoPrograma "0..*" -- "1" RegimeTrabalho : "adota as regras do" >
+
+Usuario "1" --> "0..*" PainelTelemetria : "avalia e monitora" >
+Usuario "1" --> "0..*" ParametroSistema : "configura e versiona" >
+Usuario "1" --> "0..*" Plantao : "supervisiona e encerra" >
+Usuario "1" --> "0..*" CartaoPrograma : "parametriza e define" >
+Usuario "1" --> "0..*" RegimeTrabalho : "configura e cria" >
+Usuario "1" --> "0..*" ServidorCorporacao : "cadastra e gerencia registros de" >
+
+' Dependências de Serviços e Auditoria
+Usuario ..> ServicoEmail : "dispara envio via" >
+Usuario ..> LogAuditoria : "audita cadastros, alterações e falhas" >
+ServidorCorporacao ..> LogAuditoria : "audita inserção e validações de chaves funcionais de servidores" >
+HistoricoAfastamento ..> LogAuditoria : "audita concessão de licenças/afastamentos" >
+VinculoSetor ..> LogAuditoria : "audita histórico de alocação e movimentações de setores" >
+Setor ..> LogAuditoria : "audita criação e mutação de status de setores" >
+EscalaOperacional ..> LogAuditoria : "audita criação, edições, exclusões, automações, validações e conflitos" >
+SolicitacaoPermuta ..> LogAuditoria : "audita abertura, decisões, consultas e tramitação de permutas" >
+RegistroHoraExtra ..> LogAuditoria : "audita lançamentos e homologações de horas extraordinárias" >
+RelatorioHoraExtra ..> LogAuditoria : "audita requisição e download de relatórios consolidados" >
+RelatorioHoraExtra ..> RegistroHoraExtra : "consolida dados de dotação de" >
+TokenRecuperacao ..> LogAuditoria : "audita geração" >
+SessaoUsuario ..> LogAuditoria : "registra login/logout" >
+PerfilInstitucional ..> LogAuditoria : "audita mutação de papéis" >
+PainelTelemetria ..> LogAuditoria : "registra início/fim" >
+ParametroSistema ..> LogAuditoria : "audita alterações" >
+Plantao ..> LogAuditoria : "protocolar gera log" >
+CartaoPrograma ..> LogAuditoria : "audita cadastros de regras base" >
+RegimeTrabalho ..> LogAuditoria : "audita criação e mutações de regimes de trabalho" >
+
+@enduml
